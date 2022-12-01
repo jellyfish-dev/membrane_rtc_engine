@@ -115,6 +115,14 @@ if Enum.all?(
                   may help players achieve better UX.
                   """
                 ],
+                partial_segment_duration: [
+                  spec: SegmentDuration.t() | nil,
+                  default: SegmentDuration.new(Time.milliseconds(500), Time.milliseconds(550)),
+                  description: """
+                  Expected length of each partial segment. Setting it is not necessary, but
+                  may help players achieve better UX.
+                  """
+                ],
                 mixer_config: [
                   spec: %{audio: AudioMixerConfig.t(), video: CompositorConfig.t()} | nil,
                   default: nil,
@@ -142,6 +150,7 @@ if Enum.all?(
         hls_mode: opts.hls_mode,
         target_window_duration: opts.target_window_duration,
         segment_duration: opts.segment_duration,
+        partial_segment_duration: opts.partial_segment_duration,
         mixer_config: opts.mixer_config,
         broadcast_mode: opts.broadcast_mode,
         video_layout: nil,
@@ -382,7 +391,11 @@ if Enum.all?(
           |> to({:aac_encoder, track.id})
           |> to({:aac_parser, track.id})
           |> via_in(Pad.ref(:input, {:audio, track.id}),
-            options: [encoding: :AAC, segment_duration: state.segment_duration]
+            options: [
+              encoding: :AAC,
+              segment_duration: state.segment_duration,
+              partial_segment_duration: state.partial_segment_duration
+            ]
           )
           |> to({:hls_sink_bin, track.stream_id})
         ]
@@ -449,7 +462,11 @@ if Enum.all?(
           |> to({:depayloader, track.id})
           |> to({:video_parser, track.id})
           |> via_in(Pad.ref(:input, {:video, track.id}),
-            options: [encoding: :H264, segment_duration: state.segment_duration]
+            options: [
+              encoding: :H264,
+              segment_duration: state.segment_duration,
+              partial_segment_duration: state.partial_segment_duration
+            ]
           )
           |> to({:hls_sink_bin, track.stream_id})
         ]
@@ -587,7 +604,11 @@ if Enum.all?(
             })
             |> to(:video_parser_out)
             |> via_in(Pad.ref(:input, :video),
-              options: [encoding: :H264, segment_duration: state.segment_duration]
+              options: [
+                encoding: :H264,
+                segment_duration: state.segment_duration,
+                partial_segment_duration: state.partial_segment_duration
+              ]
             )
             |> to(:hls_sink_bin)
           ]
@@ -639,7 +660,11 @@ if Enum.all?(
             |> to(:aac_encoder)
             |> to(:aac_parser)
             |> via_in(Pad.ref(:input, :audio),
-              options: [encoding: :AAC, segment_duration: state.segment_duration]
+              options: [
+                encoding: :AAC,
+                segment_duration: state.segment_duration,
+                partial_segment_duration: state.partial_segment_duration
+              ]
             )
             |> to(:hls_sink_bin)
           ]
