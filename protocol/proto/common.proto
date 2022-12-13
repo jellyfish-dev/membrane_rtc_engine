@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+message MediaEvent {
+  oneof event {
+    Join join = 1;
+    Leave leave = 2;
+    PeerChanged peerChanged = 3;
+    TracksChanged tracksChanged = 4;
+    TrackPriorityMediaEvent tracksPriority = 5;
+    string error = 6;
+
+    bytes custom = 2137;
+  }
+}
+
+message Join {
+  bytes metadata = 1;
+}
+
+message Leave {}
+
+message PeerChanged {
+  message Payload {
+    message Empty {}
+
+    message WithReason {
+      string reason = 1;
+    }
+
+    message WithMetadata {
+      bytes metadata = 1;
+    }
+  }
+
+
+  string peerId = 1;
+  oneof action {
+    Payload.Empty left = 2;
+    Payload.WithReason removed = 3;
+    Payload.WithReason denied = 4;
+    Payload.Empty accepted = 5;
+    Payload.WithMetadata joined = 6;
+    Payload.WithMetadata updated = 7;
+  }
+}
+
+message TracksChanged {
+  message Payload {
+    message Track {
+      string trackId = 1;
+      bytes metadata = 2;
+    }
+  }
+
+  enum UpdateType {
+    Update = 0;
+    Add = 1;
+    Remove = 2;
+  }
+
+  string peerId = 1;
+  UpdateType type = 2;
+  repeated Payload.Track track = 3;
+}
+
+message TrackPriorityMediaEvent {
+  repeated string trackId = 1;
+}

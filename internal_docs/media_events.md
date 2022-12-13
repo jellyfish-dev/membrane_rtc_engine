@@ -23,11 +23,6 @@ Messages used by any RTC Engine plugin
 #### RTC Engine receives these types of `media_events` from client:
 | Name                                        | Description                                                   |
 | ------------------------------------------- | ------------------------------------------------------------- |
-| [join](#join)                               | sent when peer join RTC Engine                     |
-| [leave](#leave)                             | sent when peer leaves RTC Engine                    |
-| [updatePeerMetadata](#updatepeermetadata)   | contains new metadata of a peer                         |
-| [updateTrackMetadata](#updatetrackmetadata) | contains new metadata of a track                        |
-| [custom](#custom)                           | message forwarded to the endpoint associated with the peer |
 
 
 
