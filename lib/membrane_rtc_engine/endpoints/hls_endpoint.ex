@@ -137,6 +137,13 @@ if Enum.all?(
                   Tells if the session is live or a vod type of broadcast. Use live when you generate HLS stream from real-time data.
                   Use vod when generating HLS from file.
                   """
+                ],
+                manifest_module: [
+                  spec: module,
+                  default: Membrane.HTTPAdaptiveStream.HLS,
+                  description: """
+                  #TODO
+                  """
                 ]
 
     @impl true
@@ -153,6 +160,7 @@ if Enum.all?(
         partial_segment_duration: opts.partial_segment_duration,
         mixer_config: opts.mixer_config,
         broadcast_mode: opts.broadcast_mode,
+        manifest_module: opts.manifest_module,
         video_layout: nil,
         stream_beginning: nil
       }
@@ -343,7 +351,7 @@ if Enum.all?(
 
     defp get_hls_sink_spec(state, track, directory) do
       hls_sink = %Membrane.HTTPAdaptiveStream.SinkBin{
-        manifest_module: Membrane.HTTPAdaptiveStream.HLS,
+        manifest_module: state.manifest_module,
         target_window_duration: state.target_window_duration,
         persist?: true,
         storage: %Membrane.HTTPAdaptiveStream.Storages.FileStorage{
