@@ -144,6 +144,13 @@ if Enum.all?(
                   description: """
                   #TODO
                   """
+                ],
+                storage_function: [
+                  spec: (Path.type() -> map()),
+                  default: &__MODULE__.default_file_storage/1,
+                  description: """
+                  #TODO
+                  """
                 ]
 
     @impl true
@@ -162,7 +169,8 @@ if Enum.all?(
         broadcast_mode: opts.broadcast_mode,
         manifest_module: opts.manifest_module,
         video_layout: nil,
-        stream_beginning: nil
+        stream_beginning: nil,
+        storage_function: opts.storage_function
       }
 
       video_layout =
@@ -354,9 +362,7 @@ if Enum.all?(
         manifest_module: state.manifest_module,
         target_window_duration: state.target_window_duration,
         persist?: true,
-        storage: %Membrane.HTTPAdaptiveStream.Storages.FileStorage{
-          directory: directory
-        },
+        storage: state.storage_function.(directory),
         hls_mode: state.hls_mode,
         mode: state.broadcast_mode,
         mp4_parameters_in_band?: is_nil(state.mixer_config)
@@ -746,5 +752,8 @@ if Enum.all?(
 
     unless Enum.all?(@compositor_deps ++ @audio_mixer_deps, &Code.ensure_loaded?/1),
       do: defp(merge_strings(strings), do: Enum.join(strings, ", "))
+
+    def default_file_storage(directory),
+      do: %Membrane.HTTPAdaptiveStream.Storages.FileStorage{directory: directory}
   end
 end
