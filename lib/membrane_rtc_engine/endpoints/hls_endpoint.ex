@@ -345,7 +345,7 @@ if Enum.all?(
       hls_sink = %Membrane.HTTPAdaptiveStream.SinkBin{
         manifest_module: Membrane.HTTPAdaptiveStream.HLS,
         target_window_duration: state.target_window_duration,
-        persist?: false,
+        persist?: true,
         storage: %Membrane.HTTPAdaptiveStream.Storages.FileStorage{
           directory: directory
         },
