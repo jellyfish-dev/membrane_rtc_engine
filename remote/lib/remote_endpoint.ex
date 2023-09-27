@@ -14,16 +14,6 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
     accepted_format: _any,
     availability: :on_request
 
-  def_output_pad :output,
-    demand_unit: :buffers,
-    accepted_format: _any,
-    availability: :on_request
-
-  def_input_pad :remote_input,
-    demand_unit: :buffers,
-    accepted_format: _any,
-    availability: :on_request
-
   def_output_pad :remote_output,
     demand_unit: :buffers,
     accepted_format: _any,
@@ -32,15 +22,6 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
   def_options rtc_engine: [
                 spec: pid(),
                 description: "Pid of parent Engine"
-              ],
-              owner: [
-                spec: pid(),
-                description: """
-                Pid of parent all notifications will be send to.
-                These notifications are:
-                * `{:playlist_playable, content_type}`
-                * `{:cleanup, clean_function}`
-                """
               ],
               link_proposal: [
                 spec: Remote.LinkProposal.t() | nil,
