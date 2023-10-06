@@ -6,8 +6,7 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
   use Membrane.Bin
 
   require Membrane.Logger
-
-  alias Membrane.RTC.Engine.Endpoint.Remote
+  alias Phoenix.PubSub
 
   def_input_pad :input,
     demand_unit: :buffers,
@@ -23,97 +22,35 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
                 spec: pid(),
                 description: "Pid of parent Engine"
               ],
-              link_proposal: [
-                spec: Remote.LinkProposal.t() | nil,
-                default: nil
+              room_id: [
+                spec: String.t(),
+                description: "Id of Room"
               ]
+
+  @pub_sub Membrane.RTC.Engine.Remote.PubSub
+
+  @spec id() :: binary()
+  def id() do
+    to_string(__MODULE__)
+  end
 
   @impl true
   def handle_init(_ctx, opts) do
-    state =
-      opts
-      |> Map.from_struct()
-      |> Map.merge(%{
-        partner_endpoint: nil,
-        status: :initialized
-      })
-
-    {[], state}
+    {[],
+     %{
+       rtc_engine: opts.rtc_engine,
+       room_id: opts.room_id,
+       inbound_tracks: %{},
+       outbound_tracks: %{}
+     }}
   end
 
   @impl true
-  def handle_setup(ctx, state) do
-    {:endpoint, endpoint_id} = ctx.name
-    myself = :"#{endpoint_id}"
-    Process.register(self(), myself)
+  def handle_setup(_ctx, state) do
+    :ok = PubSub.subscribe(@pub_sub, pubsub_topic(state.room_id))
+    :ok = PubSub.subscribe(@pub_sub, pubsub_topic(state.room_id, Node.self()))
 
-    {actions, state_update} =
-      case state.link_proposal do
-        %Remote.LinkProposal{token: token, link_to: partner_endpoint} ->
-          token = token || generate_token()
-
-          unless is_nil(partner_endpoint) do
-            send(
-              partner_endpoint,
-              {:handshake, %Remote.LinkProposal{token: token, link_to: {myself, Node.self()}},
-               token}
-            )
-          end
-
-          {
-            [setup: :incomplete],
-            %{token: token, partner_endpoint: partner_endpoint, status: :linking}
-          }
-
-        nil ->
-          token = generate_token()
-
-          setup = %Remote.LinkProposal{
-            token: token,
-            link_to: {myself, Node.self()}
-          }
-
-          {
-            [setup: :incomplete, notify_parent: {:forward_to_parent, {:link_proposal, setup}}],
-            %{token: token, partner_endpoint: nil, status: :waiting_for_partner}
-          }
-      end
-
-    {actions, Map.merge(state, state_update)}
-  end
-
-  @impl true
-  def handle_info(
-        {:handshake, %Remote.LinkProposal{token: new_token, link_to: new_partner_endpoint},
-         incoming_token},
-        _ctx,
-        %{status: status, token: token} = state
-      )
-      when token == incoming_token do
-    state =
-      Enum.reduce(%{partner_endpoint: new_partner_endpoint, token: new_token}, state, fn {key,
-                                                                                          value},
-                                                                                         acc ->
-        if value, do: Map.put(acc, key, value), else: acc
-      end)
-
-    case status do
-      :handshaked ->
-        {[], state}
-
-      _other ->
-        send(state.partner_endpoint, {:handshake, %Remote.LinkProposal{}, state.token})
-
-        {
-          [notify_parent: :ready, setup: :complete],
-          %{state | status: :handshaked}
-        }
-    end
-  end
-
-  @impl true
-  def handle_info({:handshake, _link_proposal, _incoming_token}, _ctx, state) do
-    {[], state}
+    {[notify_parent: :ready], state}
   end
 
   @impl true
@@ -147,5 +84,27 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
     {[notify_parent: track_ready], state}
   end
 
-  defp generate_token(), do: :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+  @impl true
+  def handle_parent_notification({:new_node, node}, _ctx, state) do
+    unless Enum.empty?(state.inbound_tracks) do
+      :ok =
+        PubSub.broadcast(
+          @pub_sub,
+          pubsub_topic(state.room_id, node),
+          {to_string(Node.self()), state.inbound_tracks}
+        )
+    end
+
+    {[], state}
+  end
+
+  @spec pubsub_topic(room_id :: binary()) :: binary()
+  def pubsub_topic(room_id) do
+    "#{__MODULE__}:#{room_id}"
+  end
+
+  @spec pubsub_topic(room_id :: binary(), node :: Node.t()) :: binary()
+  def pubsub_topic(room_id, node) do
+    "#{__MODULE__}:#{room_id}:#{to_string(node)}"
+  end
 end

@@ -78,6 +78,7 @@ defmodule Membrane.RTC.Engine do
   ```
   """
 
+  require Logger
   use Membrane.Pipeline
 
   import Membrane.RTC.Utils

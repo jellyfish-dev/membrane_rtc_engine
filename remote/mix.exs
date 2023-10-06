@@ -48,6 +48,7 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote.MixProject do
 
   def application do
     [
+      mod: {Membrane.RTC.Engine.Endpoint.Remote.App, []},
       extra_applications: []
     ]
   end
@@ -59,15 +60,16 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote.MixProject do
     [
       # Engine deps
       {:membrane_rtc_engine, path: "../engine"},
+      {:phoenix_pubsub, "~> 2.0"},
+      {:local_cluster, "~> 1.2", only: :test},
 
       # Regular deps
-      {:membrane_core, "~> 0.12.3"},
       {:credo, "~> 1.6", only: :dev, runtime: false},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:dialyxir, "~> 1.1", only: :dev, runtime: false},
 
       # Test deps
-      {:excoveralls, "~> 0.16.0", only: :test, runtime: false},
+      {:excoveralls, "~> 0.16.0", only: :test, runtime: false}
     ]
   end
 
