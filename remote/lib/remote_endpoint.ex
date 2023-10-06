@@ -7,6 +7,7 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
 
   require Membrane.Logger
   alias Phoenix.PubSub
+  alias Membrane.RTC.Engine
 
   def_input_pad :input,
     demand_unit: :buffers,
@@ -36,21 +37,16 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
 
   @impl true
   def handle_init(_ctx, opts) do
-    {[],
+    :ok = PubSub.subscribe(@pub_sub, pubsub_topic(opts.room_id))
+    :ok = PubSub.subscribe(@pub_sub, pubsub_topic(opts.room_id, Node.self()))
+
+    {[notify_parent: :ready],
      %{
        rtc_engine: opts.rtc_engine,
        room_id: opts.room_id,
        inbound_tracks: %{},
        outbound_tracks: %{}
      }}
-  end
-
-  @impl true
-  def handle_setup(_ctx, state) do
-    :ok = PubSub.subscribe(@pub_sub, pubsub_topic(state.room_id))
-    :ok = PubSub.subscribe(@pub_sub, pubsub_topic(state.room_id, Node.self()))
-
-    {[notify_parent: :ready], state}
   end
 
   @impl true
@@ -69,7 +65,26 @@ defmodule Membrane.RTC.Engine.Endpoint.Remote do
   end
 
   @impl true
-  def handle_parent_notification({:new_tracks, _tracks}, _ctx, state) do
+  def handle_parent_notification({:new_tracks, tracks}, _ctx, state) do
+    state =
+      Enum.reduce(tracks, state, fn track, state ->
+        case Engine.subscribe(state.rtc_engine, id(), track.id) do
+          :ok ->
+            put_in(state, [:inbound_tracks, track.id], track)
+
+          {:error, :invalid_track_id} ->
+            Membrane.Logger.debug("""
+            Couldn't subscribe to the track: #{inspect(track.id)}. No such track.
+            It had to be removed just after publishing it. Ignoring.
+            """)
+
+            state
+
+          {:error, reason} ->
+            raise "Couldn't subscribe to the track: #{inspect(track.id)}. Reason: #{inspect(reason)}"
+        end
+      end)
+
     {[], state}
   end
 

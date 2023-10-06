@@ -414,7 +414,7 @@ defmodule Membrane.RTC.Engine do
       end
 
     if Map.has_key?(state.endpoints, endpoint_id) do
-      Membrane.Logger.warn(
+      Membrane.Logger.warning(
         "Cannot add Endpoint with id #{inspect(endpoint_id)} as it already exists"
       )
 
@@ -586,7 +586,7 @@ defmodule Membrane.RTC.Engine do
 
       {actions, state}
     else
-      Membrane.Logger.warn(
+      Membrane.Logger.warning(
         "Endpoint #{endpoint_id} sent a `:ready` message even though it has been already accepted. Ignoring."
       )
 
