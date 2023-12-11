@@ -1,3 +1,5 @@
+asterisk/recordings/*
+
 asterisk/config/sip.conf
 
 asterisk/config/sip.tmp.conf
