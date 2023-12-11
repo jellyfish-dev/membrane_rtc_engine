@@ -41,7 +41,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
   def application do
     [
       mod: {Membrane.RTC.Engine.Endpoint.SIP.Application, []},
-      extra_applications: []
+      extra_applications: [:sippet]
     ]
   end
 
@@ -76,8 +76,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
       {:membrane_audio_mix_plugin, "~> 0.16.0"},
       {:membrane_aac_fdk_plugin, "~> 0.18.0"},
       # {:sippet, "1.0.8"},
-      # {:sippet, github: "balena/elixir-sippet"},
-      {:sippet, github: "blackham/elixir-sippet"},
+      {:sippet, github: "balena/elixir-sippet"},
       {:ex_sdp, "~> 0.11"},
       {:credo, "~> 1.6", only: :dev, runtime: false},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
