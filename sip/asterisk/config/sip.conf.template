@@ -1,0 +1,20 @@
+[general]
+# context=unauthenticated
+context=default
+allowoverlap=no
+bindport=5061
+bindaddr=0.0.0.0
+localnet=$LOCAL_NET    # using placeholder here
+externip=$EXTERNAL_IP   # using placeholder here
+allowexternaldomains=yes
+srvlookup=yes
+transport=udp
+
+[mymediaserver]
+type=friend
+host=dynamic
+username=mymediaserver
+secret=yourpassword
+context=outgoing_calls
+disallow=all
+allow=alaw      ; allow ulaw codec

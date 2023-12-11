@@ -22,11 +22,43 @@ parameters:
   file-changed:
     type: boolean
     default: false
+  sip-changed:
+    type: boolean
+    default: false
   integration-changed:
     type: boolean
     default: false
 
+executors:
+ machine_executor_amd64:
+   machine:
+     image: ubuntu-2204:2022.04.2
+   environment:
+     architecture: "amd64"
+     platform: "linux/amd64"
+
+
 jobs:
+  test_sip:
+    parameters:
+      workdir:
+        type: string
+      codecov_flag:
+        type: string
+
+    executor: machine_executor_amd64
+    working_directory: << parameters.workdir >>
+    steps:
+      - checkout
+      - run: sudo apt-get install -y net-tools
+      - run: ifconfig
+      - run: ifconfig ens5 | grep "inet " | awk '{print $2}'
+      - run: echo "EXTERNAL_IP=$(ifconfig ens5 | grep "inet " | awk '{print $2}')" > ./sip/.env
+      - run: cd sip && docker compose -f docker-compose-test.yaml --env-file .env up test --exit-code-from test
+      - codecov/upload
+
+
+
   test_package:
     parameters:
       workdir:
@@ -187,6 +219,20 @@ workflows:
           workdir: ~/app/file
           codecov_flag: file
 
+  test-sip:
+    when:
+      or:
+        - << pipeline.parameters.repo-root-changed >>
+        - << pipeline.parameters.engine-changed >>
+        # TODO: remove once the File endpoint no longer depends on the WebRTC endpoint
+        - << pipeline.parameters.webrtc-changed >>
+        - << pipeline.parameters.sip-changed >>
+    jobs:
+      - test_sip:
+          name: test_sip
+          workdir: ~/app/sip
+          codecov_flag: sip
+
   test-integration:
     when:
       or:
@@ -254,6 +300,15 @@ workflows:
       - check_changelog_update:
           name: check_changelog_update_file
           workdir: ~/app/file
+  lint-sip:
+    when: << pipeline.parameters.sip-changed >>
+    jobs:
+      - lint_package:
+          name: lint_sip
+          workdir: ~/app/sip
+      - check_changelog_update:
+          name: check_changelog_update_sip
+          workdir: ~/app/sip
 
   lint-integration:
     when: << pipeline.parameters.integration-changed >>

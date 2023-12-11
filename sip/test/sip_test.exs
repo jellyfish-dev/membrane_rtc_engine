@@ -52,8 +52,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
       sip_endpoint = create_sip_endpoint(rtc_engine)
       :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: sip_endpoint_id)
 
-      file_endpoint =
-        create_audio_file_endpoint(rtc_engine, stream_id, track_id)
+      file_endpoint = create_audio_file_endpoint(rtc_engine, stream_id, track_id)
 
       :ok = Engine.add_endpoint(rtc_engine, file_endpoint, id: file_endpoint_id)
 
@@ -84,9 +83,14 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
       Process.sleep(15_000)
 
-      Engine.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
+      Membrane.Pipeline.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
 
-      assert false
+      asterisk_output = "./asterisk/recordings/my-file-out.alaw"
+      assert File.exists?(asterisk_output)
+      check_alaw_file(asterisk_output)
+
+      assert File.dir?(output_dir)
+      check_hls_file(output_dir)
     end
   end
 
@@ -123,15 +127,14 @@ defmodule Membrane.RTC.SIPEndpointTest do
   end
 
   defp create_audio_file_endpoint(rtc_engine, stream_id, audio_track_id) do
-    track_config =
-      %TrackConfig{
-        type: :audio,
-        stream_id: stream_id,
-        encoding: :OPUS,
-        clock_rate: 48_000,
-        fmtp: nil,
-        opts: [id: audio_track_id]
-      }
+    track_config = %TrackConfig{
+      type: :audio,
+      stream_id: stream_id,
+      encoding: :OPUS,
+      clock_rate: 48_000,
+      fmtp: nil,
+      opts: [id: audio_track_id]
+    }
 
     %FileEndpoint{
       rtc_engine: rtc_engine,
@@ -153,5 +156,48 @@ defmodule Membrane.RTC.SIPEndpointTest do
         sample_format: :s16le
       }
     })
+  end
+
+  def check_alaw_file(audio_file_path) do
+    cmd =
+      "ffprobe -v quiet -print_format json -show_format -show_streams -f alaw -ar 8000 " <>
+        audio_file_path
+
+    IO.inspect(cmd, label: :PATH)
+    {output, 0} = System.cmd("sh", ["-c", cmd])
+    data = Jason.decode!(output)
+
+    audio_stream = Enum.find(data["streams"], fn stream -> stream["codec_type"] == "audio" end)
+
+    assert audio_stream != nil
+
+    assert audio_stream["codec_name"] == "pcm_alaw"
+
+    assert audio_stream["sample_rate"] == "8000"
+
+    duration = Float.parse(data["format"]["duration"]) |> elem(0)
+
+    assert duration >= 5
+  end
+
+  def check_hls_file(audio_directory) do
+    cmd = "cd #{audio_directory} && cat ./*/audio_header_*.mp4 ./*/audio_segment_* > audio.mp4"
+    {_output, _exit_code} = System.cmd("sh", ["-c", cmd])
+
+    audio_file_path = Path.join([audio_directory, "audio.mp4"])
+
+    assert File.exists?(audio_file_path)
+
+    cmd = "ffprobe -v quiet -print_format json -show_format -show_streams " <> audio_file_path
+    {output, 0} = System.cmd("sh", ["-c", cmd])
+    data = Jason.decode!(output)
+
+    audio_stream = Enum.find(data["streams"], fn stream -> stream["codec_type"] == "audio" end)
+
+    assert audio_stream != nil
+
+    duration = Float.parse(data["format"]["duration"]) |> elem(0)
+
+    assert duration >= 5
   end
 end

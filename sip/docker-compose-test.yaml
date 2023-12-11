@@ -1,0 +1,43 @@
+version: '3.1'
+
+services:
+  test:
+    image: membraneframeworklabs/docker_membrane
+    command: sh -c "cd /app/sip && mix deps.get && mix coveralls.json --warnings-as-errors"
+    volumes:
+      - ..:/app
+      - /app/sip/_build
+      - /app/sip/deps
+      - /app/engine/_build
+      - /app/webrtc/_build
+      - /app/file/_build
+      - /app/hls/_build
+    environment:
+      - EXTERNAL_IP=$EXTERNAL_IP
+      # - EXTERNAL_IP=test
+      # - EXTERNAL_IP=172.20.128.2
+      - SIP_USERNAME=mymediaserver
+      - SIP_PASSWORD=yourpassword
+      - CALLEE=1234
+      # - SIP_DOMAIN=$EXTERNAL_IP:5061
+      - SIP_DOMAIN=asterisk:5061
+      # - SIP_DOMAIN=172.20.128.3:5061
+    ports:
+      - "5060:5060/udp"
+      - "5000:5000/udp"
+      - "500:500/udp"
+    depends_on:
+      - asterisk
+
+  asterisk:
+    extends:
+      file: docker-compose.yaml
+      service: asterisk
+    ports:
+      - 5061:5061/udp
+      - 5061:5061/tcp
+      - "10000-10100:10000-10100/udp"
+    environment:
+      - EXTERNAL_IP=$EXTERNAL_IP
+      - LOCAL_NET=$EXTERNAL_IP/16
+    entrypoint: [ "/etc/asterisk/startup.sh" ] # replace "command" with "entrypoint"
