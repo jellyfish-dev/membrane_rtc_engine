@@ -81,51 +81,45 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   @audio_mixer_delay Time.milliseconds(200)
 
-  def_output_pad(:output,
-    demand_unit: :buffers,
+  def_output_pad :output,
     accepted_format: Membrane.RTP,
     availability: :on_request
-  )
 
-  def_input_pad(:input,
-    demand_unit: :buffers,
+  def_input_pad :input,
     accepted_format: Membrane.RTP,
     availability: :on_request
-  )
 
-  def_options(
-    rtc_engine: [
-      spec: pid(),
-      description: "PID of parent Engine"
-    ],
-    registrar_credentials: [
-      spec: RegistrarCredentials.t(),
-      description: "Credentials needed to connect with SIP registrar server"
-    ],
-    external_ip: [
-      spec: String.t(),
-      description:
-        "External IPv4 address of the machine running the Endpoint, required for SDP negotiation"
-    ],
-    rtp_port: [
-      spec: 1..65_535,
-      description: "Local udp port RTP stream will be received at",
-      default: @rtp_port
-    ],
-    sip_port: [
-      spec: 1..65_535,
-      description: "Local udp port SIP messages will be received at",
-      default: @sip_port
-    ],
-    register_interval: [
-      spec: non_neg_integer(),
-      description: """
-      Interval (in ms) in which keep-alive (keep-registered) REGISTER messages
-      will be sent to the SIP registrar server
-      """,
-      default: @register_interval
-    ]
-  )
+  def_options rtc_engine: [
+                spec: pid(),
+                description: "PID of parent Engine"
+              ],
+              registrar_credentials: [
+                spec: RegistrarCredentials.t(),
+                description: "Credentials needed to connect with SIP registrar server"
+              ],
+              external_ip: [
+                spec: String.t(),
+                description:
+                  "External IPv4 address of the machine running the Endpoint, required for SDP negotiation"
+              ],
+              rtp_port: [
+                spec: 1..65_535,
+                description: "Local udp port RTP stream will be received at",
+                default: @rtp_port
+              ],
+              sip_port: [
+                spec: 1..65_535,
+                description: "Local udp port SIP messages will be received at",
+                default: @sip_port
+              ],
+              register_interval: [
+                spec: non_neg_integer(),
+                description: """
+                Interval (in ms) in which keep-alive (keep-registered) REGISTER messages
+                will be sent to the SIP registrar server
+                """,
+                default: @register_interval
+              ]
 
   @impl true
   def handle_init(ctx, opts) do

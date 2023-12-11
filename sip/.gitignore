@@ -1,3 +1,7 @@
+asterisk/config/sip.conf
+
+asterisk/config/sip.tmp.conf
+
 .env
 
 # The directory Mix will write compiled artifacts to.

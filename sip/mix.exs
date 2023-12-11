@@ -40,7 +40,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
 
   def application do
     [
-      mod: {Membrane.RTC.Engine.Sip.App, []},
+      mod: {Membrane.RTC.Engine.Endpoint.SIP.Application, []},
       extra_applications: []
     ]
   end

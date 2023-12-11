@@ -25,7 +25,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
     Engine.register(pid, self())
 
     on_exit(fn ->
-      Engine.terminate(pid, blocking?: true)
+      Membrane.Pipeline.terminate(pid)
     end)
 
     [rtc_engine: pid]
@@ -158,12 +158,11 @@ defmodule Membrane.RTC.SIPEndpointTest do
     })
   end
 
-  def check_alaw_file(audio_file_path) do
+  defp check_alaw_file(audio_file_path) do
     cmd =
       "ffprobe -v quiet -print_format json -show_format -show_streams -f alaw -ar 8000 " <>
         audio_file_path
 
-    IO.inspect(cmd, label: :PATH)
     {output, 0} = System.cmd("sh", ["-c", cmd])
     data = Jason.decode!(output)
 
@@ -180,7 +179,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
     assert duration >= 5
   end
 
-  def check_hls_file(audio_directory) do
+  defp check_hls_file(audio_directory) do
     cmd = "cd #{audio_directory} && cat ./*/audio_header_*.mp4 ./*/audio_segment_* > audio.mp4"
     {_output, _exit_code} = System.cmd("sh", ["-c", cmd])
 
