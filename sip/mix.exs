@@ -65,7 +65,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
       {:membrane_rtp_format, "~> 0.8.0"},
       # {:membrane_udp_plugin, "~> 0.10.0"},
       {:membrane_udp_plugin,
-       github: "membraneframework/membrane_udp_plugin", branch: "udp_endpoint_1.0", override: true},
+       github: "membraneframework/membrane_udp_plugin", override: true},
       {:membrane_raw_audio_format, "~> 0.12.0"},
       {:membrane_raw_audio_parser_plugin, "~> 0.4.0"},
       {:membrane_g711_format, "~> 0.1.0"},
