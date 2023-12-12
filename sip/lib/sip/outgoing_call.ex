@@ -28,34 +28,38 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   @impl Call
   def handle_response(:invite, status_code, response, state) do
     case status_code do
-      100 ->
-        notify_endpoint(state.endpoint, :trying)
-        state
-
-      180 ->
-        notify_endpoint(state.endpoint, :ringing)
+      status_code when status_code in 100..199 ->
+        handle_provisional_invite_response(status_code, state)
         state
 
       200 ->
+        %Sippet.Message{
+          headers: %{
+            to: to,
+            via: [{_, _, _, %{"branch" => branch}}],
+            cseq: {cseq, _method}
+          }
+        } = response
+
+        send_ack(to, cseq, branch, state)
+
         case SDP.parse(response.body) do
           {:ok, connection_info} ->
-            %Sippet.Message{
-              headers: %{
-                to: to,
-                via: [{_, _, _, %{"branch" => branch}}],
-                cseq: {cseq, _method}
-              }
-            } = response
-
-            send_ack(to, cseq, branch, state)
             notify_endpoint(state.endpoint, {:call_ready, connection_info})
 
           {:error, reason} ->
-            # FIXME: in this case, we should still respond with ACK, then BYE
+            bye(state.call_id)
+
+            # Give Sippet time to send the request (this is async)
+            Process.sleep(50)
+
             raise "SIP Client: Call connection error, received SDP answer is not matching our requirements: #{inspect(reason)}"
         end
 
         state
+
+      403 ->
+        raise "SIP Client: Got response 403 Forbidden (call declined?)"
 
       _other ->
         Call.handle_generic_response(status_code, response, state)
@@ -151,6 +155,18 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   defp notify_endpoint(endpoint, message) do
     send(endpoint, {:call_info, message})
   end
+
+  defp handle_provisional_invite_response(100, state),
+    do: notify_endpoint(state.endpoint, :trying)
+
+  defp handle_provisional_invite_response(180, state),
+    do: notify_endpoint(state.endpoint, :ringing)
+
+  # Session Progress
+  defp handle_provisional_invite_response(183, _state), do: nil
+
+  defp handle_provisional_invite_response(code, _state),
+    do: Logger.warning("SIP Client: Received unknown provisional response #{code}. Ignoring.")
 
   defp send_ack(to, cseq, branch, state) do
     headers =

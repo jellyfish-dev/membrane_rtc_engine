@@ -44,17 +44,23 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
     @doc """
     Creates a RegistrarCredentials struct from strings. The address is parsed and can be:
-      - a FQDN, e.g. "my-sip-registrar.net",
+      - an FQDN, e.g. "my-sip-registrar.net",
       - an IPv4 in string form, e.g. "1.2.3.4".
     Both can have a specified port, e.g. "5.6.7.8:9999".
     If not given, the default SIP port 5060 will be assumed.
     """
-    @spec new(String.t(), String.t(), String.t()) :: __MODULE__.t() | no_return()
-    def new(address, username, password) do
+    @spec new(address: String.t(), username: String.t(), password: String.t()) ::
+            t() | no_return()
+    def new(opts) do
+      uri =
+        Keyword.fetch!(opts, :address)
+        |> then(&("sip:" <> &1))
+        |> Sippet.URI.parse!()
+
       %__MODULE__{
-        uri: Sippet.URI.parse!("sip:" <> address),
-        username: username,
-        password: password
+        uri: uri,
+        username: Keyword.fetch!(opts, :username),
+        password: Keyword.fetch!(opts, :password)
       }
     end
   end

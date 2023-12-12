@@ -116,9 +116,9 @@ defmodule Membrane.RTC.SIPEndpointTest do
       rtc_engine: rtc_engine,
       registrar_credentials:
         RegistrarCredentials.new(
-          System.fetch_env!("SIP_DOMAIN"),
-          System.fetch_env!("SIP_USERNAME"),
-          System.fetch_env!("SIP_PASSWORD")
+          address: System.fetch_env!("SIP_DOMAIN"),
+          username: System.fetch_env!("SIP_USERNAME"),
+          password: System.fetch_env!("SIP_PASSWORD")
         ),
       rtp_port: 5000,
       sip_port: 500,

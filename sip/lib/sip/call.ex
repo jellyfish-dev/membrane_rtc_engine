@@ -66,38 +66,32 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
       defoverridable after_init: 1, handle_request: 3, handle_response: 4
 
-      defguardp is_request_pending(state, cseq) when is_map_key(state.pending_requests, cseq)
-
       @impl GenServer
       def init({call_id, settings}) do
         state = SIP.Call.init_state(call_id, settings)
         {:ok, __MODULE__.after_init(state)}
       end
 
-      # This case is disabled for INVITEs because:
-      # * `pending_requests` is primarily used for retransmissions
-      # * when we send an INVITE, the server will respond with 100 Trying, 180 Ringing and then 200 OK
-      # * since we don't want to send retransmissions if we receive a response from the server,
-      #   we're deleting the entire INVITE request from `pending_requests` after receiving 100
-      # * ...which means the case below would kick in when we receive 180 and 200, and nothing would work
       @impl GenServer
-      def handle_cast({:response, %Sippet.Message{headers: %{cseq: {cseq, method}}}}, state)
-          when method != :invite and not is_request_pending(state, cseq) do
-        Logger.warning(
-          "SIP Client: Received response with CSeq #{cseq}, for which there is no pending request. Ignoring."
-        )
-
-        {:noreply, state}
-      end
-
-      @impl GenServer
-      def handle_cast({:response, %{headers: %{cseq: {cseq, method}}} = response}, state) do
+      def handle_cast(
+            {:response, %{headers: %{cseq: {cseq, method}}} = response},
+            %{cseq: cseq} = state
+          ) do
         Logger.debug("Received response in call: #{inspect(response)}")
 
         state =
           __MODULE__.handle_response(method, response.start_line.status_code, response, state)
 
-        {:noreply, %{state | pending_requests: Map.delete(state.pending_requests, cseq)}}
+        {:noreply, state}
+      end
+
+      @impl GenServer
+      def handle_cast({:response, %Sippet.Message{headers: %{cseq: {cseq, _method}}}}, state) do
+        Logger.warning(
+          "SIP Client: Received response with CSeq #{cseq}, which doesn't match last request CSeq (#{state.cseq}). Ignoring."
+        )
+
+        {:noreply, state}
       end
 
       @impl GenServer
@@ -105,29 +99,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
         Logger.debug("Received request in call: #{inspect(request)}")
         {:noreply, __MODULE__.handle_request(method, request, state)}
       end
-
-      @impl GenServer
-      def handle_info({:retransmission, cseq, 0}, state) when is_request_pending(state, cseq) do
-        raise "SIP Client: Reached retransmission limit"
-      end
-
-      @impl GenServer
-      def handle_info({:retransmission, cseq, attempts}, state)
-          when is_request_pending(state, cseq) do
-        Logger.warning("SIP Client: No response received. Attempts left: #{attempts - 1}")
-        state = SIP.Call.make_request(state.last_message, state, attempts - 1)
-        {:noreply, state}
-      end
-
-      @impl GenServer
-      def handle_info({:retransmission, _cseq, _attempts}, state) do
-        {:noreply, state}
-      end
     end
   end
-
-  @max_retransmission_attempts 3
-  @retransmission_delay 5_000
 
   ## MANAGEMENT API
 
@@ -171,8 +144,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       callee: nil,
       headers_base: Headers.create_headers_base(from_address),
       cseq: 0,
-      last_message: nil,
-      pending_requests: %{}
+      last_message: nil
     })
   end
 
@@ -188,24 +160,15 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
     |> update_in([:via], fn via -> [Tuple.append(via, %{"branch" => branch})] end)
   end
 
-  @spec make_request(Sippet.Message.request(), state(), non_neg_integer()) ::
-          state() | no_return()
-  def make_request(message, state, attempts_left \\ @max_retransmission_attempts) do
+  @spec make_request(Sippet.Message.request(), state()) :: state() | no_return()
+  def make_request(message, state) do
     with :ok <- SippetCore.send_message(message) do
       {cseq, _method} = message.headers.cseq
 
-      pending_requests = Map.put(state.pending_requests, cseq, true)
-
-      Process.send_after(
-        self(),
-        {:retransmission, cseq, attempts_left},
-        @retransmission_delay
-      )
-
-      %{state | cseq: cseq, last_message: message, pending_requests: pending_requests}
+      %{state | cseq: cseq, last_message: message}
     else
       error ->
-        Logger.debug("Register failed with message: #{inspect(message)}")
+        Logger.debug("Send failed with message: #{inspect(message)}")
         raise "SIP Client: Unable to send message: #{inspect(error)}."
     end
   end
@@ -214,7 +177,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
           state() | no_return()
   def handle_generic_response(status_code, response, state) do
     case status_code do
-      200 ->
+      success when success in [200, 204] ->
         state
 
       401 ->
@@ -223,9 +186,12 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       407 ->
         raise "SIP Client: Received 407 response. Proxy authorization is unsupported"
 
-      _other ->
+      redirect when redirect in 300..399 ->
+        raise "SIP Client: Received redirection response with code #{status_code}. Redirections are unsupported"
+
+      _other_failure ->
         raise """
-        SIP Client: Received unhandled response
+        SIP Client: Received unhandled failure response
           with code #{status_code} (#{inspect(response.start_line.reason_phrase)}):
           #{inspect(response)}
         """

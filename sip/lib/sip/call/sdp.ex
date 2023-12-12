@@ -4,8 +4,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call.SDP do
   alias Membrane.RTP.PayloadFormat
 
   @accepted_payload_types [8]
-  @session_name "Telefish"
-  @username "Jellyfish"
+  @session_name "TeleEngine"
+  @username "Engine"
 
   @spec proposal(String.t(), 1..65_535) :: {String.t(), non_neg_integer()}
   def proposal(external_ip, rtp_port) do
