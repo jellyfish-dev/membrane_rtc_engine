@@ -33,30 +33,20 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
         state
 
       200 ->
-        %Sippet.Message{
-          headers: %{
-            to: to,
-            via: [{_, _, _, %{"branch" => branch}}],
-            cseq: {cseq, _method}
-          }
-        } = response
-
-        send_ack(to, cseq, branch, state)
+        send_ack(response, state)
 
         case SDP.parse(response.body) do
           {:ok, connection_info} ->
             notify_endpoint(state.endpoint, {:call_ready, connection_info})
+            state
 
           {:error, reason} ->
             bye(state.call_id)
-
             # Give Sippet time to send the request (this is async)
             Process.sleep(50)
 
             raise "SIP Client: Call connection error, received SDP answer is not matching our requirements: #{inspect(reason)}"
         end
-
-        state
 
       403 ->
         raise "SIP Client: Got response 403 Forbidden (call declined?)"
@@ -168,7 +158,15 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   defp handle_provisional_invite_response(code, _state),
     do: Logger.warning("SIP Client: Received unknown provisional response #{code}. Ignoring.")
 
-  defp send_ack(to, cseq, branch, state) do
+  defp send_ack(response, state) do
+    %Sippet.Message{
+      headers: %{
+        to: to,
+        via: [{_, _, _, %{"branch" => branch}}],
+        cseq: {cseq, _method}
+      }
+    } = response
+
     headers =
       Call.build_headers(:ack, state, branch)
       |> Map.replace(:to, to)

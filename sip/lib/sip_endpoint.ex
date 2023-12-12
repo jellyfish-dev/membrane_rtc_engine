@@ -53,7 +53,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
             t() | no_return()
     def new(opts) do
       uri =
-        Keyword.fetch!(opts, :address)
+        opts
+        |> Keyword.fetch!(:address)
         |> then(&("sip:" <> &1))
         |> Sippet.URI.parse!()
 
