@@ -173,9 +173,9 @@ defmodule Membrane.RTC.SIPEndpointTest do
       rtc_engine: rtc_engine,
       registrar_credentials:
         RegistrarCredentials.new(
-          System.fetch_env!("SIP_DOMAIN"),
-          username,
-          "yourpassword"
+          address: System.fetch_env!("SIP_DOMAIN"),
+          username: username,
+          password: "yourpassword"
         ),
       external_ip: System.fetch_env!("EXTERNAL_IP")
     }

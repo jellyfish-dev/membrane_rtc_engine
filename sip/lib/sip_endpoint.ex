@@ -16,7 +16,15 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   alias Membrane.{Logger, RawAudio, Time}
   alias Membrane.RTC.Engine
-  alias Membrane.RTC.Engine.Endpoint.SIP.{Call, OutgoingCall, PortAllocator, RegisterCall, SippetCore}
+
+  alias Membrane.RTC.Engine.Endpoint.SIP.{
+    Call,
+    OutgoingCall,
+    PortAllocator,
+    RegisterCall,
+    SippetCore
+  }
+
   alias Membrane.RTC.Engine.Endpoint.WebRTC.{TrackReceiver, TrackSender}
   alias Membrane.RTC.Engine.Track
   alias Membrane.RTP.SessionBin
@@ -138,6 +146,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     {_register_call_id, _pid} = spawn_call(opts, RegisterCall)
 
     self_pid = self()
+
     Membrane.ResourceGuard.register(
       ctx.resource_guard,
       fn -> PortAllocator.free_ports(self_pid) end

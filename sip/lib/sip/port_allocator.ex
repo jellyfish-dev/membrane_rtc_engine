@@ -40,9 +40,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
     if is_nil(port) do
       {:reply, {:error, :no_available_port}, state}
     else
-      state = %{state |
-        available: available,
-        in_use: Map.update(state.in_use, pid, [], &[port | &1])
+      state = %{
+        state
+        | available: available,
+          in_use: Map.update(state.in_use, pid, [], &[port | &1])
       }
 
       {:reply, {:ok, port}, state}
@@ -53,10 +54,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
   def handle_cast({:free_ports, pid}, state) do
     {ports, in_use} = Map.pop(state.in_use, pid, [])
 
-    state = %{state |
-      available: ports ++ state.available,
-      in_use: in_use
-    }
+    state = %{state | available: ports ++ state.available, in_use: in_use}
 
     {:noreply, state}
   end
