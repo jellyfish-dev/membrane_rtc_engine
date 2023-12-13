@@ -107,18 +107,10 @@ defmodule Membrane.RTC.FileEndpointTest do
       Endpoint.File.start_sending(rtc_engine, @source_endpoint_id)
     end
 
-    refute_receive %Message.EndpointCrashed{endpoint_id: @sink_endpoint_id}
-
-    assert_receive %Message.EndpointMessage{
-                     message: :finished,
-                     endpoint_id: @source_endpoint_id
-                   },
-                   25_000
-
-    assert_receive %Message.EndpointMessage{message: :finished, endpoint_id: @sink_endpoint_id},
-                   25_000
-
-    :ok = Engine.remove_endpoint(rtc_engine, @sink_endpoint_id)
+    assert_receive %Message.EndpointRemoved{endpoint_id: @source_endpoint_id}, 25_000
+    assert_receive %Message.EndpointRemoved{endpoint_id: @sink_endpoint_id}, 25_000
+    refute_received %Message.EndpointCrashed{endpoint_id: @sink_endpoint_id}
+    refute_received %Message.EndpointCrashed{endpoint_id: @source_endpoint_id}
 
     assert File.exists?(output_file)
     assert File.read!(output_file) |> byte_size() == File.read!(reference_path) |> byte_size()

@@ -6,7 +6,6 @@ defmodule Membrane.RTC.Engine.Endpoint.File do
   It starts publishing data immediately after initialization, if `autoplay` is set to true (default),
   or if `autoplay` is disabled - after calling `start_sending` function with proper arguments.
   After publishing track it sends to engine parent notification `:tracks_added`.
-  After sending all data from file it sends to engine parent notification `:finished`.
   """
 
   use Membrane.Bin
@@ -160,7 +159,7 @@ defmodule Membrane.RTC.Engine.Endpoint.File do
 
   @impl true
   def handle_element_end_of_stream(:track_sender, _pad, _ctx, state) do
-    {[notify_parent: {:forward_to_parent, :finished}], state}
+    {[notify_parent: :finished], state}
   end
 
   @impl true

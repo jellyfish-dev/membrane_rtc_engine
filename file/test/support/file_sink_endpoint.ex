@@ -104,7 +104,7 @@ defmodule Membrane.RTC.Engine.Support.Sink do
 
   @impl true
   def handle_element_end_of_stream(:file_sink, _pad, _ctx, state) do
-    {[notify_parent: {:forward_to_parent, :finished}], state}
+    {[notify_parent: :finished], state}
   end
 
   @impl true

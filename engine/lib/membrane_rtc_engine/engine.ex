@@ -88,6 +88,8 @@ defmodule Membrane.RTC.Engine do
   require Membrane.Logger
   require Membrane.OpenTelemetry
 
+  require Logger
+
   alias Membrane.RTC.Engine.{
     DisplayManager,
     Endpoint,
@@ -179,7 +181,12 @@ defmodule Membrane.RTC.Engine do
 
   This action can only be used once, any further calls by an endpoint will be ignored.
   """
-  @type ready_action_t() :: {:notify, :ready | {:ready, metadata :: any()}}
+  @type ready_action_t() :: {:notify_parent, :ready | {:ready, metadata :: any()}}
+
+  @typedoc """
+  Membrane action that informs engine that endpoint finished processing and should be removed.
+  """
+  @type finished_action_t() :: {:notify_parent, :finished}
 
   @typedoc """
   A message that the Engine sends to the endpoint when it ackowledges its `t:ready_action_t/0`
@@ -610,6 +617,15 @@ defmodule Membrane.RTC.Engine do
   #   the WebRTC endpoint. Handles track_ready, publication of new tracks, and publication of
   #   removed tracks. Also forwards custom media events.
   #
+
+  defp handle_endpoint_notification(:finished, endpoint_id, ctx, state) do
+    {{:present, endpoint}, actions, new_state} = handle_remove_endpoint(endpoint_id, ctx, state)
+    dispatch(%Message.EndpointRemoved{endpoint_id: endpoint_id, endpoint_type: endpoint.type})
+
+    Membrane.Logger.info("Endpoint #{endpoint_id} removed after processing finished")
+
+    {actions, new_state}
+  end
 
   defp handle_endpoint_notification(:ready, endpoint_id, ctx, state) do
     handle_endpoint_notification({:ready, nil}, endpoint_id, ctx, state)
