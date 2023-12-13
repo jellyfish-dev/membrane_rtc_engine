@@ -14,6 +14,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
   @fixtures_dir "./test/fixtures/"
   @tracks_added_delay 500
+  @phone_extension "1234"
 
   setup do
     options = [
@@ -38,6 +39,10 @@ defmodule Membrane.RTC.SIPEndpointTest do
       rtc_engine: rtc_engine,
       tmp_dir: tmp_dir
     } do
+      asterisk_output = "./asterisk/recordings/my-file0-out.alaw"
+
+      File.rm(asterisk_output)
+
       file_endpoint_id = "file-endpoint-id"
       sip_endpoint_id = "sip-endpoint"
       hls_endpoint_id = "hls-endpoint"
@@ -62,10 +67,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
                      },
                      @tracks_added_delay
 
-      SIP.dial(rtc_engine, sip_endpoint_id, System.fetch_env!("CALLEE"))
-
-      # Process.sleep(5_000)
-      # SIP.end_call(rtc_engine, sip_endpoint_id)
+      SIP.dial(rtc_engine, sip_endpoint_id, @phone_extension)
 
       FileEndpoint.start_sending(rtc_engine, file_endpoint_id)
 
@@ -85,7 +87,6 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
       Membrane.Pipeline.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
 
-      asterisk_output = "./asterisk/recordings/my-file-out.alaw"
       assert File.exists?(asterisk_output)
       check_alaw_file(asterisk_output)
 
@@ -93,6 +94,62 @@ defmodule Membrane.RTC.SIPEndpointTest do
       check_hls_file(output_dir)
     end
   end
+
+  # test "two sip endpoints", %{
+  #   rtc_engine: rtc_engine,
+  #   tmp_dir: tmp_dir
+  # } do
+  #   file_endpoint_id = "file-endpoint-id"
+  #   sip_endpoint_id = "sip-endpoint"
+  #   hls_endpoint_id = "hls-endpoint"
+
+  #   track_id = "test-track-id"
+  #   stream_id = "test-stream"
+
+  #   output_dir = Path.join([tmp_dir, stream_id])
+  #   hls_endpoint = create_hls_endpoint(rtc_engine, output_dir)
+  #   :ok = Engine.add_endpoint(rtc_engine, hls_endpoint, id: hls_endpoint_id)
+
+  #   sip_endpoint = create_sip_endpoint(rtc_engine)
+  #   :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: sip_endpoint_id)
+
+  #   file_endpoint = create_audio_file_endpoint(rtc_engine, stream_id, track_id)
+
+  #   :ok = Engine.add_endpoint(rtc_engine, file_endpoint, id: file_endpoint_id)
+
+  #   assert_receive %Message.EndpointMessage{
+  #                    endpoint_id: ^file_endpoint_id,
+  #                    message: :tracks_added
+  #                  },
+  #                  @tracks_added_delay
+
+  #   SIP.dial(rtc_engine, sip_endpoint_id, @phone_extension)
+
+  #   FileEndpoint.start_sending(rtc_engine, file_endpoint_id)
+
+  #   assert_receive %Message.TrackAdded{
+  #                    endpoint_id: ^sip_endpoint_id,
+  #                    track_id: sip_track_id
+  #                  },
+  #                  15_000
+
+  #   :ok = Engine.message_endpoint(rtc_engine, hls_endpoint_id, {:subscribe, [sip_track_id]})
+
+  #   Process.sleep(15_000)
+
+  #   Engine.remove_endpoint(rtc_engine, sip_endpoint_id)
+
+  #   Process.sleep(15_000)
+
+  #   Membrane.Pipeline.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
+
+  #   asterisk_output = "./asterisk/recordings/my-file-out.alaw"
+  #   assert File.exists?(asterisk_output)
+  #   check_alaw_file(asterisk_output)
+
+  #   assert File.dir?(output_dir)
+  #   check_hls_file(output_dir)
+  # end
 
   defp create_hls_endpoint(rtc_engine, output_dir) do
     %HLS{
@@ -111,14 +168,14 @@ defmodule Membrane.RTC.SIPEndpointTest do
     }
   end
 
-  defp create_sip_endpoint(rtc_engine) do
+  defp create_sip_endpoint(rtc_engine, username \\ "mymediaserver0") do
     %SIP{
       rtc_engine: rtc_engine,
       registrar_credentials:
         RegistrarCredentials.new(
-          address: System.fetch_env!("SIP_DOMAIN"),
-          username: System.fetch_env!("SIP_USERNAME"),
-          password: System.fetch_env!("SIP_PASSWORD")
+          System.fetch_env!("SIP_DOMAIN"),
+          username,
+          "yourpassword"
         ),
       rtp_port: 5000,
       sip_port: 500,

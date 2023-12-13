@@ -10,11 +10,20 @@ allowexternaldomains=yes
 srvlookup=yes
 transport=udp
 
-[mymediaserver]
+[mymediaserver0]
 type=friend
 host=dynamic
-username=mymediaserver
+username=mymediaserver0
 secret=yourpassword
-context=outgoing_calls
+context=outgoing_calls0
+disallow=all
+allow=alaw      ; allow ulaw codec
+
+[mymediaserver1]
+type=friend
+host=dynamic
+username=mymediaserver1
+secret=yourpassword
+context=outgoing_calls1
 disallow=all
 allow=alaw      ; allow ulaw codec
