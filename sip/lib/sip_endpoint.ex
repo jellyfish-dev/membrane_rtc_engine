@@ -90,6 +90,20 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     Engine.message_endpoint(rtc_engine, endpoint_id, :end_call)
   end
 
+  @doc """
+  Sets range of available ports for SIP Endpoints (both ends inclusive)
+
+  The Endpoints will open UDP sockets on ports from this range.
+  Each SIP Endpoint uses 2 ports: one for SIP signaling messages, the other for the RTP media stream.
+
+  This function is meant to be called once, during the initialisation of your application
+  (preferably, in your `config.exs`).
+  """
+  @spec set_port_range(from :: 1..65_535, to :: 1..65_535) :: :ok
+  def set_port_range(from, to) when from < to do
+    Application.put_env(:membrane_rtc_engine_sip, :port_range, from..to)
+  end
+
   @register_interval 45_000
 
   @audio_mixer_delay Time.milliseconds(200)
@@ -175,7 +189,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       {:error, :no_available_port} ->
         raise """
         No available ports! Consider increasing the port range used by PortAllocator.
-          You can do that by running `Application.put_env(:membrane_rtc_engine_sip, :port_range, 21_000..22_000)`
+          You can do that by running `#{__MODULE__}.set_port_range(from, to)`
           in your `config.exs` file.
         """
     end
