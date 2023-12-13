@@ -57,7 +57,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
   import Membrane.RTC.Utils
 
   require Membrane.Logger
-  require Membrane.OpenTelemetry
   require Membrane.TelemetryMetrics
 
   alias ExSDP.Attribute.FMTP
@@ -172,16 +171,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
                 To see possible notifications please refer to module docs.
                 """
               ],
-              trace_context: [
-                spec: :list,
-                default: [],
-                description: "Trace context for otel propagation"
-              ],
-              parent_span: [
-                spec: :opentelemetry.span_ctx() | nil,
-                default: nil,
-                description: "Parent span of #{@life_span_id}"
-              ],
               video_tracks_limit: [
                 spec: integer() | nil,
                 default: nil,
@@ -249,22 +238,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
       opts.telemetry_label
     )
 
-    if opts.trace_context != [], do: Membrane.OpenTelemetry.attach(opts.trace_context)
-
-    start_span_opts =
-      case opts.parent_span do
-        nil -> []
-        parent_span -> [parent_span: parent_span]
-      end
-
-    Membrane.OpenTelemetry.start_span(@life_span_id, start_span_opts)
-
-    Membrane.OpenTelemetry.set_attribute(
-      @life_span_id,
-      :endpoint_metadata,
-      inspect(opts.metadata)
-    )
-
     connection_allocator_module =
       if opts.simulcast_config.enabled,
         do: __MODULE__.RTPConnectionAllocator,
@@ -298,7 +271,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
       integrated_turn_options: state.integrated_turn_options,
       trace_context: state.trace_context,
       trace_metadata: [ice_name: state.ice_name],
-      parent_span: Membrane.OpenTelemetry.get_span(@life_span_id),
       rtcp_receiver_report_interval: state.rtcp_receiver_report_interval,
       rtcp_sender_report_interval: state.rtcp_sender_report_interval,
       simulcast?: state.simulcast_config.enabled,
@@ -349,10 +321,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
 
     send_if_not_nil(state.display_manager, {:add_inbound_tracks, ctx.name, tracks})
 
-    Membrane.OpenTelemetry.add_event(@life_span_id, :publishing_new_tracks,
-      tracks_ids: Enum.map(tracks, & &1.id)
-    )
-
     {[notify_parent: {:publish, {:new_tracks, tracks}}],
      %{state | inbound_tracks: inbound_tracks}}
   end
@@ -396,8 +364,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
       track_telemetry_label
     )
 
-    Membrane.OpenTelemetry.add_event(@life_span_id, :track_ready, track_id: track_id)
-
     variant = to_track_variant(rid)
 
     Membrane.Logger.info("New incoming WebRTC track #{track_id} with SSRC #{inspect(ssrc)}")
@@ -415,10 +381,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
     Enum.each(new_outbound_tracks, fn track ->
       case Engine.subscribe(state.rtc_engine, endpoint_id, track.id) do
         :ok ->
-          Membrane.OpenTelemetry.add_event(@life_span_id, :subscribing_on_track,
-            track_id: track.id
-          )
-
           :ok
 
         {:error, :invalid_track_id} ->
@@ -428,11 +390,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
           """)
 
         {:error, reason} ->
-          Membrane.OpenTelemetry.add_event(@life_span_id, :subscribing_on_track_error,
-            track_id: track.id,
-            reason: inspect(reason)
-          )
-
           raise "Couldn't subscribe to the track: #{inspect(track.id)}. Reason: #{inspect(reason)}"
       end
     end)
@@ -454,10 +411,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
       to_media_event({:signal, {:offer_data, media_count, turns}})
       |> MediaEvent.encode()
 
-    Membrane.OpenTelemetry.add_event(@life_span_id, :custom_media_event_sent,
-      event: inspect(media_event)
-    )
-
     {[notify_parent: {:forward_to_parent, {:media_event, media_event}}], state}
   end
 
@@ -469,10 +422,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
         state
       ) do
     media_event = to_media_event(media_event_data) |> MediaEvent.encode()
-
-    Membrane.OpenTelemetry.add_event(@life_span_id, :custom_media_event_sent,
-      event: inspect(media_event)
-    )
 
     {[notify_parent: {:forward_to_parent, {:media_event, media_event}}], state}
   end
@@ -506,10 +455,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
     )
 
     media_event = to_media_event(msg) |> MediaEvent.encode()
-
-    Membrane.OpenTelemetry.add_event(@life_span_id, :custom_media_event_sent,
-      event: inspect(media_event)
-    )
 
     {[notify_parent: {:forward_to_parent, {:media_event, media_event}}], state}
   end
@@ -642,18 +587,9 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
   def handle_parent_notification({:media_event, event}, ctx, state) do
     case deserialize(event) do
       {:ok, data} ->
-        Membrane.OpenTelemetry.add_event(@life_span_id, :custom_media_event_received,
-          type: data[:type],
-          data: inspect(data[:data])
-        )
-
         handle_media_event(data, ctx, state)
 
       {:error, :invalid_media_event} ->
-        Membrane.OpenTelemetry.add_event(@life_span_id, :invalid_custom_media_event_received,
-          event: inspect(event)
-        )
-
         Membrane.Logger.warning("Invalid media event #{inspect(event)}. Ignoring.")
         {[], state}
     end

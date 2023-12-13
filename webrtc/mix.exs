@@ -57,7 +57,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC.MixProject do
       {:membrane_rtp_plugin, "~> 0.24.1"},
       {:membrane_ice_plugin, "~> 0.17.0"},
       {:membrane_rtp_format, "~> 0.8.0"},
-      {:membrane_opentelemetry, "~> 0.1.0"},
       {:membrane_rtp_vp8_plugin, "~> 0.9.0"},
       {:membrane_rtp_h264_plugin, "~> 0.19.0"},
       {:membrane_telemetry_metrics, "~> 0.1.0"},
@@ -70,10 +69,7 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC.MixProject do
 
       # Test deps
       {:membrane_file_plugin, "~> 0.16.0"},
-      {:excoveralls, "~> 0.16.0", only: :test, runtime: false},
-
-      # Otel
-      {:opentelemetry_api, "~> 1.0.0"}
+      {:excoveralls, "~> 0.16.0", only: :test, runtime: false}
     ]
   end
 
