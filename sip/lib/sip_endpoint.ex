@@ -16,7 +16,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   alias Membrane.{Logger, RawAudio, Time}
   alias Membrane.RTC.Engine
-  alias Membrane.RTC.Engine.Endpoint.SIP.{Call, OutgoingCall, RegisterCall, SippetCore}
+  alias Membrane.RTC.Engine.Endpoint.SIP.{Call, OutgoingCall, PortAllocator, RegisterCall, SippetCore}
   alias Membrane.RTC.Engine.Endpoint.WebRTC.{TrackReceiver, TrackSender}
   alias Membrane.RTC.Engine.Track
   alias Membrane.RTP.SessionBin
@@ -82,8 +82,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     Engine.message_endpoint(rtc_engine, endpoint_id, :end_call)
   end
 
-  @rtp_port 21_000
-  @sip_port 22_000
   @register_interval 45_000
 
   @audio_mixer_delay Time.milliseconds(200)
@@ -108,16 +106,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
                 spec: String.t(),
                 description:
                   "External IPv4 address of the machine running the Endpoint, required for SDP negotiation"
-              ],
-              rtp_port: [
-                spec: 1..65_535,
-                description: "Local udp port RTP stream will be received at",
-                default: @rtp_port
-              ],
-              sip_port: [
-                spec: 1..65_535,
-                description: "Local udp port SIP messages will be received at",
-                default: @sip_port
               ],
               register_interval: [
                 spec: non_neg_integer(),
@@ -149,21 +137,40 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     SippetCore.setup()
     {_register_call_id, _pid} = spawn_call(opts, RegisterCall)
 
-    state =
-      opts
-      |> Map.merge(%{
-        outgoing_track: track,
-        incoming_tracks: %{},
-        outgoing_ssrc: SessionBin.generate_receiver_ssrc([], []),
-        incoming_ssrc: nil,
-        registered?: false,
-        pipelines_spawned?: false,
-        call_id: nil,
-        phone_number: nil,
-        payload_type: nil
-      })
+    self_pid = self()
+    Membrane.ResourceGuard.register(
+      ctx.resource_guard,
+      fn -> PortAllocator.free_ports(self_pid) end
+    )
 
-    {[], state}
+    with {:ok, rtp_port} <- PortAllocator.get_port(),
+         {:ok, sip_port} <- PortAllocator.get_port() do
+      state =
+        opts
+        |> Map.merge(%{
+          rtp_port: rtp_port,
+          sip_port: sip_port,
+          outgoing_track: track,
+          incoming_tracks: %{},
+          outgoing_ssrc: SessionBin.generate_receiver_ssrc([], []),
+          incoming_ssrc: nil,
+          registered?: false,
+          pipelines_spawned?: false,
+          call_id: nil,
+          phone_number: nil,
+          payload_type: nil
+        })
+
+      {[], state}
+    else
+      {:error, :no_available_port} ->
+        raise """
+        SIP Endpoint: No available ports!
+          Consider increasing the port range used by PortAllocator. You can do that by running
+          `Application.put_env(:membrane_rtc_engine_sip, :port_range, 21_000..22_000)`
+          in your `config.exs` file.
+        """
+    end
   end
 
   @impl true
@@ -496,16 +503,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
     {[notify_parent: {:forward_to_parent, msg}, terminate: :shutdown], state}
   end
-
-  # @impl true
-  # def handle_info({:sip_info, :disconnected}, _ctx, state) do
-  #   Logger.error("""
-  #   RTSP Endpoint disconnected from source.
-  #   The endpoint is now functionally useless, it will not be able to reconnect and is thus shutting down
-  #   """)
-
-  #   {[notify_parent: {:forward_to_parent, :disconnected}, terminate: :shutdown], state}
-  # end
 
   @impl true
   def handle_info(info, _ctx, state) do

@@ -6,7 +6,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
   alias Membrane.Logger
   alias Membrane.RTC.Engine.Endpoint.SIP
   alias Membrane.RTC.Engine.Endpoint.SIP.Call.{Auth, Headers, Settings}
-  alias Membrane.RTC.Engine.Endpoint.SIP.SippetCore
+  alias Membrane.RTC.Engine.Endpoint.SIP.{CallRegistry, SippetCore}
 
   @type id :: String.t()
   @type state :: map()
@@ -106,7 +106,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
   @spec exists?(id()) :: boolean()
   def exists?(call_id) do
-    Registry.lookup(SipEndpoint.CallRegistry, call_id) != []
+    Registry.lookup(CallRegistry, call_id) != []
   end
 
   ## INCOMING API
@@ -125,7 +125,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
   @spec registry_id(id()) :: {:via, module(), term()}
   def registry_id(call_id) do
-    {:via, Registry, {SipEndpoint.CallRegistry, call_id}}
+    {:via, Registry, {CallRegistry, call_id}}
   end
 
   @spec init_state(id(), Settings.t()) :: state()

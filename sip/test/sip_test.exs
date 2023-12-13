@@ -177,8 +177,6 @@ defmodule Membrane.RTC.SIPEndpointTest do
           username,
           "yourpassword"
         ),
-      rtp_port: 5000,
-      sip_port: 500,
       external_ip: System.fetch_env!("EXTERNAL_IP")
     }
   end
