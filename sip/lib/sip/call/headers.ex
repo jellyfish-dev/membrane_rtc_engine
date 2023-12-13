@@ -13,7 +13,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call.Headers do
         from_address,
         %{"tag" => Sippet.Message.create_tag()}
       },
-      via: {{2, 0}, :udp, {from_address.host, from_address.port}},
+      via: {{2, 0}, :udp, {from_address.host, from_address.port || 0}},
       contact: [
         {
           @caller_identifier,
