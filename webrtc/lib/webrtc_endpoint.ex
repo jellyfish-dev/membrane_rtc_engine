@@ -79,8 +79,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
   @track_metadata_event [Membrane.RTC.Engine.Endpoint.WebRTC, :track, :metadata, :event]
   @endpoint_metadata_event [Membrane.RTC.Engine.Endpoint.WebRTC, :endpoint, :metadata, :event]
 
-  @life_span_id "webrtc_endpoint.life_span"
-
   defmacrop bitrate_notification(estimation) do
     {:bitrate_estimation, estimation}
   end
@@ -269,8 +267,6 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
       direction: state.direction,
       extensions: state.webrtc_extensions || [],
       integrated_turn_options: state.integrated_turn_options,
-      trace_context: state.trace_context,
-      trace_metadata: [ice_name: state.ice_name],
       rtcp_receiver_report_interval: state.rtcp_receiver_report_interval,
       rtcp_sender_report_interval: state.rtcp_sender_report_interval,
       simulcast?: state.simulcast_config.enabled,
