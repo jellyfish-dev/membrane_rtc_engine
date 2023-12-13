@@ -56,7 +56,6 @@ defmodule Membrane.RTC.Engine.MixProject do
       {:membrane_core, "~> 1.0"},
       {:membrane_rtp_plugin, "~> 0.24.1"},
       {:membrane_rtp_format, "~> 0.8.0"},
-      {:membrane_opentelemetry, "~> 0.1.0"},
       {:ex_sdp, "~> 0.13.1"},
       {:elixir_uuid, "~> 1.2"},
       {:statistics, "~> 0.6.0"},
@@ -68,11 +67,7 @@ defmodule Membrane.RTC.Engine.MixProject do
 
       # Test deps
       {:excoveralls, "~> 0.16.0", only: :test, runtime: false},
-      {:membrane_fake_plugin, "~> 0.11.0", only: :test},
-
-      # Otel
-      {:opentelemetry, "~> 1.0.0"},
-      {:opentelemetry_api, "~> 1.0.0"}
+      {:membrane_fake_plugin, "~> 0.11.0", only: :test}
     ]
   end
 

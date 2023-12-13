@@ -1,8 +1,6 @@
 defmodule Membrane.RTC.Utils do
   @moduledoc false
 
-  require OpenTelemetry.Tracer, as: Tracer
-
   # This is workaround to make dialyzer happy.
   # In other case we would have to specify all possible CallbackContext types here.
   # Maybe membrane_core should have something like
@@ -56,26 +54,6 @@ defmodule Membrane.RTC.Utils do
     if pid != nil do
       send(pid, msg)
     end
-  end
-
-  @spec create_otel_context(name :: String.t(), metadata :: [{atom(), any()}]) :: any()
-  @dialyzer {:nowarn_function, create_otel_context: 1, create_otel_context: 2}
-  def create_otel_context(name, metadata \\ []) do
-    metadata =
-      [
-        {:"library.language", :erlang},
-        {:"library.name", :membrane_rtc_engine},
-        {:"library.version", "server:#{Application.spec(:membrane_rtc_engine, :vsn)}"}
-      ] ++ metadata
-
-    root_span = Tracer.start_span(name)
-    parent_ctx = Tracer.set_current_span(root_span)
-    otel_ctx = OpenTelemetry.Ctx.attach(parent_ctx)
-    OpenTelemetry.Span.set_attributes(root_span, metadata)
-    OpenTelemetry.Span.end_span(root_span)
-    OpenTelemetry.Ctx.attach(otel_ctx)
-
-    [otel_ctx]
   end
 
   @spec generate_turn_credentials(binary(), binary()) :: {binary(), binary()}
