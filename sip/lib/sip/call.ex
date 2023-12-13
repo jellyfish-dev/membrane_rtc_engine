@@ -169,7 +169,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
     else
       error ->
         Logger.debug("Send failed with message: #{inspect(message)}")
-        raise "SIP Client: Unable to send message: #{inspect(error)}."
+        raise "SIP Client: Unable to send message: #{inspect(error)}"
     end
   end
 

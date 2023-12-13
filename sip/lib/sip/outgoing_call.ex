@@ -49,7 +49,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
         end
 
       403 ->
-        raise "SIP Client: Got response 403 Forbidden (call declined?)"
+        # Most likely, this means that the other side declined the call
+        # and there is no voicemail server which could answer
+        notify_endpoint(state.endpoint, {:end, :declined})
+        state
 
       _other ->
         Call.handle_generic_response(status_code, response, state)

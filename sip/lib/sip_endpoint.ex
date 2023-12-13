@@ -174,9 +174,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     else
       {:error, :no_available_port} ->
         raise """
-        SIP Endpoint: No available ports!
-          Consider increasing the port range used by PortAllocator. You can do that by running
-          `Application.put_env(:membrane_rtc_engine_sip, :port_range, 21_000..22_000)`
+        No available ports! Consider increasing the port range used by PortAllocator.
+          You can do that by running `Application.put_env(:membrane_rtc_engine_sip, :port_range, 21_000..22_000)`
           in your `config.exs` file.
         """
     end
@@ -350,10 +349,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     state = %{state | incoming_ssrc: ssrc}
 
     if fmt != state.payload_type do
-      raise("""
+      raise """
       Payload type mismatch between RTP mapping and received stream
       (expected #{inspect(state.payload_type)}, got #{inspect(fmt)})
-      """)
+      """
     end
 
     {[
@@ -370,7 +369,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
         _ctx,
         _state
       ) do
-    raise("Received unexpected, second RTP stream: #{inspect(msg)}")
+    raise "Received unexpected, second RTP stream: #{inspect(msg)}"
   end
 
   @impl true
@@ -503,6 +502,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       :user_hangup ->
         Logger.info("SIP Endpoint: Call ended by user")
 
+      :declined ->
+        Logger.info("SIP Endpoint: Call declined by other side")
+
       :normal_clearing ->
         Logger.info("SIP Endpoint: Call ended by other side (hangup)")
 
@@ -510,6 +512,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
         Logger.warning("SIP Endpoint: Call ended with reason: #{inspect(reason)}")
     end
 
+    # TODO: change this (use the new action once it works)
     {[notify_parent: {:forward_to_parent, msg}, terminate: :shutdown], state}
   end
 
