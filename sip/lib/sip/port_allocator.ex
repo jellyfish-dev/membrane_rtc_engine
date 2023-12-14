@@ -3,7 +3,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
 
   use GenServer
 
-  @default_port_range 21_000..21_100
+  @default_port_range {21_000, 21_100}
 
   @spec start_link(term()) :: GenServer.on_start()
   def start_link(opts) do
@@ -22,11 +22,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
 
   @impl true
   def init(_opts) do
-    port_range =
+    {from, to} =
       Application.get_env(:membrane_rtc_engine_sip, :port_range, @default_port_range)
 
     state = %{
-      available: Enum.to_list(port_range),
+      available: Enum.to_list(from..to),
       in_use: %{}
     }
 
