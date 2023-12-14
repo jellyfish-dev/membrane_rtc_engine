@@ -523,7 +523,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     end
 
     # TODO: change this (use the new action once it works)
-    {[notify_parent: {:forward_to_parent, msg}, terminate: :shutdown], state}
+    {[notify_parent: {:forward_to_parent, msg}, notify_parent: :finished], state}
   end
 
   @impl true
