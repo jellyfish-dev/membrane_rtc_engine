@@ -137,11 +137,16 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       port: settings.sip_port
     }
 
+    callee =
+      if is_nil(settings.phone_number),
+        do: nil,
+        else: %{settings.registrar_credentials.uri | userinfo: settings.phone_number}
+
     settings
     |> Map.from_struct()
     |> Map.merge(%{
       call_id: call_id,
-      callee: nil,
+      callee: callee,
       headers_base: Headers.create_headers_base(from_address),
       cseq: 0,
       last_message: nil

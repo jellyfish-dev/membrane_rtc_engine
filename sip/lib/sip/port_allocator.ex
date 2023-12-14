@@ -43,7 +43,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
       state = %{
         state
         | available: available,
-          in_use: Map.update(state.in_use, pid, [], &[port | &1])
+          in_use: Map.update(state.in_use, pid, [port], &[port | &1])
       }
 
       {:reply, {:ok, port}, state}

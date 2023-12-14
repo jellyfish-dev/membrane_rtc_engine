@@ -171,8 +171,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
           incoming_tracks: %{},
           outgoing_ssrc: SessionBin.generate_receiver_ssrc([], []),
           incoming_ssrc: nil,
-          registered?: false,
-          pipelines_spawned?: false,
+          endpoint_state: :unregistered,
           call_id: nil,
           phone_number: nil,
           payload_type: nil
@@ -270,36 +269,54 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
-  def handle_parent_notification({:dial, phone_number}, _ctx, %{registered?: false} = state) do
-    Logger.info("SIP Endpoint: Postponing call until registered")
-    {[], %{state | phone_number: phone_number}}
-  end
-
-  @impl true
   def handle_parent_notification({:dial, phone_number}, _ctx, state) do
-    Logger.info("SIP Endpoint: Calling #{inspect(phone_number)}...")
+    state =
+      case state.endpoint_state do
+        :unregistered ->
+          Logger.info("SIP Endpoint: Postponing call until registered")
+          %{state | phone_number: phone_number, endpoint_state: :unregistered_call_pending}
 
-    {call_id, _pid} = spawn_call(state)
-    OutgoingCall.dial(call_id, phone_number)
+        :registered ->
+          Logger.info("SIP Endpoint: Calling #{inspect(phone_number)}...")
+          state = %{state | phone_number: phone_number}
+          {call_id, _pid} = spawn_call(state)
+          %{state | call_id: call_id, endpoint_state: :calling}
 
-    {[], %{state | call_id: call_id, phone_number: phone_number}}
-  end
+        _other ->
+          Logger.warning("SIP Endpoint: Already calling, or endpoint is terminating")
+          state
+      end
 
-  @impl true
-  def handle_parent_notification(:end_call, _ctx, state) when is_nil(state.call_id) do
-    Logger.warning("SIP Endpoint: No ongoing call or call attempt to end")
-    {[], %{state | phone_number: nil}}
+    {[], state}
   end
 
   @impl true
   def handle_parent_notification(:end_call, _ctx, state) do
-    Logger.info("SIP Endpoint: Ending call")
+    new_endpoint_state =
+      case state.endpoint_state do
+        :unregistered_call_pending ->
+          Logger.info("SIP Endpoint: Call attempt cancelled")
+          :unregistered
 
-    if state.pipelines_spawned?,
-      do: OutgoingCall.bye(state.call_id),
-      else: OutgoingCall.cancel(state.call_id)
+        :calling ->
+          Logger.info("SIP Endpoint: Cancelling call attempt")
+          OutgoingCall.cancel(state.call_id)
+          :ending_call
 
-    {[], state}
+        :in_call ->
+          Logger.info("SIP Endpoint: Ending call")
+          OutgoingCall.bye(state.call_id)
+          :ending_call
+
+        other_state ->
+          Logger.warning(
+            "SIP Endpoint: No ongoing call or call attempt to end, or endpoint is already terminating"
+          )
+
+          other_state
+      end
+
+    {[], %{state | phone_number: nil, endpoint_state: new_endpoint_state}}
   end
 
   @impl true
@@ -417,19 +434,28 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
-  def handle_info(:registered, _ctx, %{registered?: false} = state)
-      when not is_nil(state.phone_number) do
-    Logger.info("SIP Endpoint: Calling #{inspect(state.phone_number)}...")
+  def handle_info(:registered, _ctx, state) do
+    state =
+      case state.endpoint_state do
+        :unregistered ->
+          %{state | endpoint_state: :registered}
 
-    {call_id, _pid} = spawn_call(state)
-    OutgoingCall.dial(call_id, state.phone_number)
+        :unregistered_call_pending ->
+          Logger.info("SIP Endpoint: Calling #{inspect(state.phone_number)}...")
+          {call_id, _pid} = spawn_call(state)
+          %{state | call_id: call_id, endpoint_state: :calling}
 
-    {[], %{state | call_id: call_id, registered?: true}}
+        _other_state ->
+          state
+      end
+
+    {[], state}
   end
 
   @impl true
-  def handle_info(:registered, _ctx, state) do
-    {[], %{state | registered?: true}}
+  def handle_info({:call_info, call_info}, _ctx, %{endpoint_state: :terminating} = state) do
+    Logger.debug("SIP Endpoint: Received call info #{inspect(call_info)} in state :terminating")
+    {[], state}
   end
 
   @impl true
@@ -445,16 +471,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
-  def handle_info({:call_info, {:call_ready, _opts}}, _ctx, %{pipelines_spawned?: true} = state) do
-    Logger.warning(
-      "SIP Endpoint: Received `:call_ready` info, but the pipelines are already spawned. Ignoring"
-    )
-
-    {[], state}
-  end
-
-  @impl true
-  def handle_info({:call_info, {:call_ready, options}}, _ctx, state) do
+  def handle_info({:call_info, {:call_ready, options}}, _ctx, %{endpoint_state: :calling} = state) do
     Logger.debug("SIP Endpoint: Connected. Received source options: #{inspect(options)}")
     Logger.info("SIP Endpoint: Call answered")
 
@@ -503,9 +520,18 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       notify_parent: {:forward_to_parent, :call_ready}
     ]
 
-    state = %{state | payload_type: payload_type, pipelines_spawned?: true}
+    state = %{state | payload_type: payload_type, endpoint_state: :in_call}
 
     {actions, state}
+  end
+
+  @impl true
+  def handle_info({:call_info, {:call_ready, _opts}}, _ctx, %{endpoint_state: :in_call} = state) do
+    Logger.warning(
+      "SIP Endpoint: Received `:call_ready` info, but the pipelines are already spawned. Ignoring"
+    )
+
+    {[], state}
   end
 
   @impl true
@@ -527,8 +553,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
         Logger.warning("SIP Endpoint: Call ended with reason: #{inspect(reason)}")
     end
 
-    # TODO: change this (use the new action once it works)
-    {[notify_parent: {:forward_to_parent, msg}, notify_parent: :finished], state}
+    actions = [notify_parent: {:forward_to_parent, msg}, notify_parent: :finished]
+
+    {actions, %{state | endpoint_state: :terminating}}
   end
 
   @impl true
@@ -538,9 +565,17 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
-  def handle_terminate_request(ctx, state) do
-    handle_parent_notification(:end_call, ctx, state)
-    {[terminate: :normal], state}
+  def handle_terminate_request(_ctx, state) do
+    Logger.debug("SIP Endpoint: Received terminate request")
+
+    case state.endpoint_state do
+      :calling -> OutgoingCall.cancel(state.call_id)
+      :in_call -> OutgoingCall.bye(state.call_id)
+      _other -> nil
+    end
+
+    # Will `terminate: :normal` kill `RegisterCall`?
+    {[terminate: :normal], %{state | endpoint_state: :terminating}}
   end
 
   defp spawn_call(state, module \\ OutgoingCall) do

@@ -6,12 +6,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   alias Membrane.RTC.Engine.Endpoint.SIP.{Call, SippetCore}
   alias Membrane.RTC.Engine.Endpoint.SIP.Call.SDP
 
-  ## OUTGOING API
-
-  @spec dial(Call.id(), String.t()) :: :ok
-  def dial(call_id, phone_number) do
-    GenServer.cast(Call.registry_id(call_id), {:invite, phone_number})
-  end
+  ## CALL MANAGEMENT API
 
   @spec cancel(Call.id()) :: :ok
   def cancel(call_id) do
@@ -24,6 +19,23 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   end
 
   ## SIP.Call CALLBACKS
+
+  @impl Call
+  def after_init(state) do
+    {body, content_length} = SDP.proposal(state.external_ip, state.rtp_port)
+
+    headers =
+      Call.build_headers(:invite, state)
+      |> Map.replace(:content_length, content_length)
+
+    message =
+      Sippet.Message.build_request(:invite, to_string(state.callee))
+      |> Map.put(:headers, headers)
+      |> Sippet.Message.put_header(:content_type, "application/sdp")
+      |> Map.replace(:body, body)
+
+    Call.make_request(message, state)
+  end
 
   @impl Call
   def handle_response(:invite, status_code, response, state) do
@@ -41,7 +53,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
             state
 
           {:error, reason} ->
-            bye(state.call_id)
+            build_and_send_request(:bye, state)
             # Give Sippet time to send the request (this is async)
             Process.sleep(50)
 
@@ -49,7 +61,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
         end
 
       403 ->
-        # Most likely, this means that the other side declined the call
+        # Most likely, 403 Forbidden means that the other side declined the call
         # and there is no voicemail server which could answer
         notify_endpoint(state.endpoint, {:end, :declined})
         state
@@ -84,35 +96,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   ## GenServer CALLBACKS
 
   @impl GenServer
-  def handle_cast({:invite, phone_number}, state) do
-    callee = %{state.registrar_credentials.uri | userinfo: phone_number}
-    state = %{state | callee: callee}
-
-    {body, content_length} = SDP.proposal(state.external_ip, state.rtp_port)
-
-    headers =
-      Call.build_headers(:invite, state)
-      |> Map.replace(:content_length, content_length)
-
-    message =
-      Sippet.Message.build_request(:invite, to_string(callee))
-      |> Map.put(:headers, headers)
-      |> Sippet.Message.put_header(:content_type, "application/sdp")
-      |> Map.replace(:body, body)
-
-    state = Call.make_request(message, state)
-    {:noreply, state}
-  end
-
-  @impl GenServer
   def handle_cast(:cancel, state) do
-    headers = Call.build_headers(:cancel, state)
-
-    message =
-      Sippet.Message.build_request(:cancel, to_string(state.callee))
-      |> Map.put(:headers, headers)
-
-    state = Call.make_request(message, state)
+    build_and_send_request(:cancel, state)
 
     # Give Sippet time to send the request (this is async)
     Process.sleep(50)
@@ -124,13 +109,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
 
   @impl GenServer
   def handle_cast(:bye, state) do
-    headers = Call.build_headers(:bye, state)
+    build_and_send_request(:bye, state)
 
-    message =
-      Sippet.Message.build_request(:bye, to_string(state.callee))
-      |> Map.put(:headers, headers)
-
-    state = Call.make_request(message, state)
+    # Give Sippet time to send the request (this is async)
+    Process.sleep(50)
 
     notify_endpoint(state.endpoint, {:end, :user_hangup})
 
@@ -138,6 +120,16 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   end
 
   ## PRIVATE FUNCTIONS
+
+  defp build_and_send_request(method, state) do
+    headers = Call.build_headers(method, state)
+
+    message =
+      Sippet.Message.build_request(method, to_string(state.callee))
+      |> Map.put(:headers, headers)
+
+    Call.make_request(message, state)
+  end
 
   defp respond(request, code) do
     request
