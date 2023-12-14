@@ -532,6 +532,12 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     {[], state}
   end
 
+  @impl true
+  def handle_terminate_request(ctx, state) do
+    handle_parent_notification(:end_call, ctx, state)
+    {[terminate: :normal], state}
+  end
+
   defp spawn_call(state, module \\ OutgoingCall) do
     state
     |> Map.put(:endpoint, self())
