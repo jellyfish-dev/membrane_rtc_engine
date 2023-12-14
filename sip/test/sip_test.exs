@@ -102,9 +102,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
     asterisk_output0 = "./asterisk/recordings/my-file0-out.alaw"
     asterisk_output1 = "./asterisk/recordings/my-file1-out.alaw"
 
-    # output_dir = Path.join([tmp_dir, "output"])
-    # hls_endpoint = create_hls_endpoint(rtc_engine, output_dir)
-    # :ok = Engine.add_endpoint(rtc_engine, hls_endpoint, id: hls_endpoint_id)
+    for output <- [asterisk_output0, asterisk_output1], do: File.rm(output)
 
     sip_endpoint = create_sip_endpoint(rtc_engine)
     :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: sip_endpoint_id1)

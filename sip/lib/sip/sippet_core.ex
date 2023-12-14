@@ -12,8 +12,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.SippetCore do
 
   @spec setup() :: :ok | no_return()
   def setup() do
-    {:ok, _pid} = Sippet.start_link(name: @sippet_id)
-    {:ok, _pid} = Sippet.Transports.UDP.start_link(name: @sippet_id)
+    Sippet.start_link(name: @sippet_id)
+    Sippet.Transports.UDP.start_link(name: @sippet_id)
     Sippet.register_core(@sippet_id, __MODULE__)
   end
 

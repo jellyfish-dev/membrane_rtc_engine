@@ -21,8 +21,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     Call,
     OutgoingCall,
     PortAllocator,
-    RegisterCall,
-    SippetCore
+    RegisterCall
   }
 
   alias Membrane.RTC.Engine.Endpoint.WebRTC.{TrackReceiver, TrackSender}
@@ -156,7 +155,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
     opts = Map.from_struct(opts)
 
-    SippetCore.setup()
     {_register_call_id, _pid} = spawn_call(opts, RegisterCall)
 
     self_pid = self()
