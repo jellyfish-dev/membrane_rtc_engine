@@ -88,7 +88,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
   defp aliases do
     [
       "test.ci": [
-        "cmd docker compose -f docker-compose-test.yaml --env-file .env up test --exit-code-from test"
+        "cmd docker compose -f docker-compose-test.yaml --env-file .env up --remove-orphans test --exit-code-from test"
       ]
     ]
   end

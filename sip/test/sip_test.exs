@@ -33,8 +33,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
   end
 
   describe "SIP Endpoint test" do
-    @describetag :tmp_dir
-
+    @tag :tmp_dir
     test "happy path", %{
       rtc_engine: rtc_engine,
       tmp_dir: tmp_dir
@@ -85,8 +84,6 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
       Process.sleep(15_000)
 
-      Membrane.Pipeline.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
-
       assert File.exists?(asterisk_output)
       check_alaw_file(asterisk_output)
 
@@ -95,61 +92,55 @@ defmodule Membrane.RTC.SIPEndpointTest do
     end
   end
 
-  # test "two sip endpoints", %{
-  #   rtc_engine: rtc_engine,
-  #   tmp_dir: tmp_dir
-  # } do
-  #   file_endpoint_id = "file-endpoint-id"
-  #   sip_endpoint_id = "sip-endpoint"
-  #   hls_endpoint_id = "hls-endpoint"
+  @tag :tmp_dir
+  test "two sip endpoints", %{
+    rtc_engine: rtc_engine,
+    tmp_dir: tmp_dir
+  } do
+    sip_endpoint_id1 = "sip-endpoint1"
+    sip_endpoint_id2 = "sip-endpoint2"
+    asterisk_output0 = "./asterisk/recordings/my-file0-out.alaw"
+    asterisk_output1 = "./asterisk/recordings/my-file1-out.alaw"
 
-  #   track_id = "test-track-id"
-  #   stream_id = "test-stream"
+    # output_dir = Path.join([tmp_dir, "output"])
+    # hls_endpoint = create_hls_endpoint(rtc_engine, output_dir)
+    # :ok = Engine.add_endpoint(rtc_engine, hls_endpoint, id: hls_endpoint_id)
 
-  #   output_dir = Path.join([tmp_dir, stream_id])
-  #   hls_endpoint = create_hls_endpoint(rtc_engine, output_dir)
-  #   :ok = Engine.add_endpoint(rtc_engine, hls_endpoint, id: hls_endpoint_id)
+    sip_endpoint = create_sip_endpoint(rtc_engine)
+    :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: sip_endpoint_id1)
 
-  #   sip_endpoint = create_sip_endpoint(rtc_engine)
-  #   :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: sip_endpoint_id)
+    sip_endpoint = create_sip_endpoint(rtc_engine, "mymediaserver1")
+    :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: sip_endpoint_id2)
 
-  #   file_endpoint = create_audio_file_endpoint(rtc_engine, stream_id, track_id)
+    SIP.dial(rtc_engine, sip_endpoint_id1, @phone_extension)
+    SIP.dial(rtc_engine, sip_endpoint_id2, @phone_extension)
 
-  #   :ok = Engine.add_endpoint(rtc_engine, file_endpoint, id: file_endpoint_id)
+    assert_receive %Message.TrackAdded{
+                     endpoint_id: ^sip_endpoint_id1,
+                     track_id: _sip_track_id
+                   },
+                   15_000
 
-  #   assert_receive %Message.EndpointMessage{
-  #                    endpoint_id: ^file_endpoint_id,
-  #                    message: :tracks_added
-  #                  },
-  #                  @tracks_added_delay
+    assert_receive %Message.TrackAdded{
+                     endpoint_id: ^sip_endpoint_id2,
+                     track_id: _sip_track_id
+                   },
+                   15_000
 
-  #   SIP.dial(rtc_engine, sip_endpoint_id, @phone_extension)
+    Process.sleep(15_000)
 
-  #   FileEndpoint.start_sending(rtc_engine, file_endpoint_id)
+    Engine.remove_endpoint(rtc_engine, sip_endpoint_id1)
+    Engine.remove_endpoint(rtc_engine, sip_endpoint_id2)
 
-  #   assert_receive %Message.TrackAdded{
-  #                    endpoint_id: ^sip_endpoint_id,
-  #                    track_id: sip_track_id
-  #                  },
-  #                  15_000
+    Process.sleep(15_000)
 
-  #   :ok = Engine.message_endpoint(rtc_engine, hls_endpoint_id, {:subscribe, [sip_track_id]})
+    Membrane.Pipeline.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
 
-  #   Process.sleep(15_000)
-
-  #   Engine.remove_endpoint(rtc_engine, sip_endpoint_id)
-
-  #   Process.sleep(15_000)
-
-  #   Membrane.Pipeline.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
-
-  #   asterisk_output = "./asterisk/recordings/my-file-out.alaw"
-  #   assert File.exists?(asterisk_output)
-  #   check_alaw_file(asterisk_output)
-
-  #   assert File.dir?(output_dir)
-  #   check_hls_file(output_dir)
-  # end
+    for output <- [asterisk_output0, asterisk_output1] do
+      assert File.exists?(output)
+      check_alaw_file(output)
+    end
+  end
 
   defp create_hls_endpoint(rtc_engine, output_dir) do
     %HLS{
