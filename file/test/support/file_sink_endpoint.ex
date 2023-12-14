@@ -52,8 +52,10 @@ defmodule Membrane.RTC.Engine.Support.Sink do
   end
 
   @impl true
-  def handle_pad_removed(pad, _ctx, state) do
-    {notify({:end_of_stream, pad}), state}
+  def handle_pad_removed(Pad.ref(:input, track_id) = pad, _ctx, state) do
+    track_children = [{:track_receiver, track_id}, {:depayloader, track_id}, :file_sink]
+
+    {[remove_children: track_children] ++ notify({:end_of_stream, pad}), state}
   end
 
   @impl true

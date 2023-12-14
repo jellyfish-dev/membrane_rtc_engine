@@ -54,7 +54,7 @@ jobs:
       - run: ifconfig
       - run: ifconfig ens5 | grep "inet " | awk '{print $2}'
       - run: echo "EXTERNAL_IP=$(ifconfig ens5 | grep "inet " | awk '{print $2}')" > ./sip/.env
-      - run: cd sip && docker compose -f docker-compose-test.yaml --env-file .env up test --exit-code-from test
+      - run: cd sip && docker compose -f docker-compose-test.yaml --env-file .env up --remove-orphans test --exit-code-from test
       - codecov/upload
 
 
