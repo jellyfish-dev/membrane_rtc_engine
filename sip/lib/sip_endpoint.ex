@@ -341,6 +341,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
+  def handle_parent_notification({:endpoint_removed, _endpoint_id}, _ctx, state) do
+    {[], state}
+  end
+
+  @impl true
   def handle_parent_notification(msg, _ctx, state) do
     Logger.warning("SIP Endpoint: Unexpected message from parent: #{inspect(msg)}. Ignoring.")
     {[], state}
