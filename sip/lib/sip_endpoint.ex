@@ -85,6 +85,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   defmodule State do
     @moduledoc false
+    use Bunch.Access
 
     @typep endpoint_state ::
              :unregistered

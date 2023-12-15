@@ -12,6 +12,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
   defmodule State do
     @moduledoc false
+    use Bunch.Access
 
     @type t :: %__MODULE__{
             endpoint: pid(),
