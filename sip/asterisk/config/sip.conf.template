@@ -15,7 +15,7 @@ type=friend
 host=dynamic
 username=mymediaserver0
 secret=yourpassword
-context=outgoing_calls0
+context=outgoing_calls
 disallow=all
 allow=alaw      ; allow ulaw codec
 
@@ -24,6 +24,6 @@ type=friend
 host=dynamic
 username=mymediaserver1
 secret=yourpassword
-context=outgoing_calls1
+context=outgoing_calls
 disallow=all
 allow=alaw      ; allow ulaw codec

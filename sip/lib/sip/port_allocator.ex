@@ -22,8 +22,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
 
   @impl true
   def init(_opts) do
-    {from, to} =
-      Application.get_env(:membrane_rtc_engine_sip, :port_range, @default_port_range)
+    {from, to} = Application.get_env(:membrane_rtc_engine_sip, :port_range, @default_port_range)
 
     state = %{
       available: Enum.to_list(from..to),

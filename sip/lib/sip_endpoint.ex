@@ -650,9 +650,14 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     {[terminate: :normal], %{state | endpoint_state: :terminating}}
   end
 
+
   defp spawn_call(state, module \\ OutgoingCall) do
     state
-    |> Map.from_struct()
+    |> case do
+      %_{} = struct -> Map.from_struct(struct)
+      %{} = map -> map
+      _other -> raise "State is not map nor struct"
+    end
     |> Map.put(:endpoint, self())
     |> then(&struct(Call.Settings, &1))
     |> module.start_link()
