@@ -203,8 +203,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       call_id: state.call_id,
       cseq: {state.cseq + 1, method},
       content_length: 0
+      # authorization: Map.get(state.last_message.headers, :authorization, [])
     })
     |> update_in([:via], fn via -> [Tuple.append(via, %{"branch" => branch})] end)
+    |> IO.inspect(label: :HEADERS_AFTER_BUILD_HEADERS)
   end
 
   @spec make_request(Sippet.Message.request(), state()) :: state() | no_return()

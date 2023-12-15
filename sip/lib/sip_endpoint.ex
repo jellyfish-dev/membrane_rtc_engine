@@ -652,6 +652,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   defp spawn_call(state, module \\ OutgoingCall) do
     state
+    |> Map.from_struct()
     |> Map.put(:endpoint, self())
     |> then(&struct(Call.Settings, &1))
     |> module.start_link()
