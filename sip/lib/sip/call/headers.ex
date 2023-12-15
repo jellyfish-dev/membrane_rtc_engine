@@ -5,7 +5,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call.Headers do
   @user_agent "RTC Engine/SIP/0.1"
   @max_forwards 70
 
-  @spec create_headers_base(Sippet.URI.t()) :: map()
+  @type t :: map()
+
+  @spec create_headers_base(Sippet.URI.t()) :: t()
   def create_headers_base(from_address) do
     %{
       from: {

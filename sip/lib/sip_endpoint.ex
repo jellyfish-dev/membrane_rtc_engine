@@ -50,7 +50,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     * `username` - your username in registrar service
     * `password` - your password in registrar service
     """
-    @type t() :: %__MODULE__{
+    @type t :: %__MODULE__{
             uri: Sippet.URI.t(),
             username: String.t(),
             password: String.t()
@@ -81,6 +81,57 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
         password: Keyword.fetch!(opts, :password)
       }
     end
+  end
+
+  defmodule State do
+    @moduledoc false
+
+    @typep endpoint_state ::
+             :unregistered
+             | :unregistered_call_pending
+             | :registered
+             | :calling
+             | :in_call
+             | :ending_call
+             | :terminating
+
+    @type t :: %__MODULE__{
+            rtc_engine: pid(),
+            registrar_credentials: RegistrarCredentials.t(),
+            external_ip: String.t(),
+            register_interval: non_neg_integer(),
+            endpoint_state: endpoint_state(),
+            rtp_port: 1..65_535,
+            sip_port: 1..65_535,
+            outgoing_track: Track.t(),
+            incoming_tracks: %{Track.id() => Track.t()},
+            outgoing_ssrc: Membrane.RTP.ssrc_t(),
+            incoming_ssrc: Membrane.RTP.ssrc_t() | nil,
+            register_call_id: Call.id(),
+            call_id: Call.id() | nil,
+            phone_number: String.t() | nil,
+            payload_type: ExSDP.Attribute.RTPMapping.payload_type_t()
+          }
+
+    @enforce_keys [
+      :rtc_engine,
+      :registrar_credentials,
+      :external_ip,
+      :register_interval,
+      :endpoint_state,
+      :rtp_port,
+      :sip_port,
+      :outgoing_track,
+      :incoming_tracks,
+      :outgoing_ssrc,
+      :incoming_ssrc,
+      :register_call_id,
+      :call_id,
+      :phone_number,
+      :payload_type
+    ]
+
+    defstruct @enforce_keys
   end
 
   @doc """
@@ -151,7 +202,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
     opts = Map.from_struct(opts)
 
-    {_register_call_id, _pid} = spawn_call(opts, RegisterCall)
+    {register_call_id, _pid} = spawn_call(opts, RegisterCall)
 
     self_pid = self()
 
@@ -165,17 +216,19 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       state =
         opts
         |> Map.merge(%{
+          endpoint_state: :unregistered,
           rtp_port: rtp_port,
           sip_port: sip_port,
           outgoing_track: track,
           incoming_tracks: %{},
           outgoing_ssrc: SessionBin.generate_receiver_ssrc([], []),
           incoming_ssrc: nil,
-          endpoint_state: :unregistered,
+          register_call_id: register_call_id,
           call_id: nil,
           phone_number: nil,
           payload_type: nil
         })
+        |> then(&struct!(State, &1))
 
       {[], state}
     else
@@ -348,17 +401,14 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
-  def handle_parent_notification({:remove_tracks, _tracks}, _ctx, state) do
-    {[], state}
-  end
-
-  @impl true
-  def handle_parent_notification({:ready, _endpoints}, _ctx, state) do
-    {[], state}
-  end
-
-  @impl true
-  def handle_parent_notification({:endpoint_removed, _endpoint_id}, _ctx, state) do
+  def handle_parent_notification({topic, _data}, _ctx, state)
+      when topic in [
+             :remove_tracks,
+             :ready,
+             :endpoint_added,
+             :endpoint_removed,
+             :bitrate_estimation
+           ] do
     {[], state}
   end
 
@@ -417,6 +467,16 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   @impl true
   def handle_child_notification(
         {:variant_switched, _new, _old},
+        {:track_receiver, _tid},
+        _ctx,
+        state
+      ) do
+    {[], state}
+  end
+
+  @impl true
+  def handle_child_notification(
+        {:voice_activity_changed, _new},
         {:track_receiver, _tid},
         _ctx,
         state
@@ -569,12 +629,24 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     Logger.debug("SIP Endpoint: Received terminate request")
 
     case state.endpoint_state do
-      :calling -> OutgoingCall.cancel(state.call_id)
-      :in_call -> OutgoingCall.bye(state.call_id)
-      _other -> nil
+      :calling ->
+        OutgoingCall.cancel(state.call_id)
+        Process.sleep(50)
+
+      :in_call ->
+        OutgoingCall.bye(state.call_id)
+        Process.sleep(50)
+
+      _other ->
+        nil
     end
 
-    # Will `terminate: :normal` kill `RegisterCall`?
+    unless state.endpoint_state in [:unregistered, :unregistered_call_pending, :registered] do
+      Call.stop(state.call_id)
+    end
+
+    Call.stop(state.register_call_id)
+
     {[terminate: :normal], %{state | endpoint_state: :terminating}}
   end
 

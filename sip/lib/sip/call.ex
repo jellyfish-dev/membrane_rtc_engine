@@ -9,7 +9,43 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
   alias Membrane.RTC.Engine.Endpoint.SIP.{CallRegistry, SippetCore}
 
   @type id :: String.t()
-  @type state :: map()
+
+  defmodule State do
+    @moduledoc false
+
+    @type t :: %__MODULE__{
+            endpoint: pid(),
+            rtp_port: 1..65_535,
+            sip_port: 1..65_535,
+            registrar_credentials: SIP.RegistrarCredentials.t(),
+            external_ip: String.t(),
+            register_interval: non_neg_integer(),
+            phone_number: String.t() | nil,
+            call_id: SIP.Call.id(),
+            callee: Sippet.URI.t() | nil,
+            headers_base: Headers.t(),
+            cseq: non_neg_integer(),
+            last_message: Sippet.Message.t() | nil
+          }
+
+    @enforce_keys [
+      :endpoint,
+      :rtp_port,
+      :sip_port,
+      :registrar_credentials,
+      :external_ip,
+      :register_interval,
+      :phone_number,
+      :call_id,
+      :callee,
+      :headers_base,
+      :cseq,
+      :last_message
+    ]
+    defstruct @enforce_keys
+  end
+
+  @type state :: State.t()
 
   @callback start_link(Settings.t()) :: {id(), pid()}
   @callback after_init(state :: state()) :: state()
@@ -104,6 +140,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
   ## MANAGEMENT API
 
+  @spec stop(id()) :: :ok
+  def stop(call_id) do
+    GenServer.stop(registry_id(call_id))
+  end
+
   @spec exists?(id()) :: boolean()
   def exists?(call_id) do
     Registry.lookup(CallRegistry, call_id) != []
@@ -151,6 +192,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       cseq: 0,
       last_message: nil
     })
+    |> then(&struct!(State, &1))
   end
 
   @spec build_headers(atom(), state(), String.t()) :: map()
