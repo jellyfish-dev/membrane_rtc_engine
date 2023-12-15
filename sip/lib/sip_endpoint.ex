@@ -528,7 +528,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   @impl true
   def handle_info({:call_info, :ringing}, _ctx, state) do
     Logger.info("SIP Endpoint: Ringing...")
-    {[], state}
+
+    {[notify_parent: {:forward_to_parent, :ringing}], state}
   end
 
   @impl true
@@ -577,7 +578,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       spec: receive_spec ++ send_spec,
       notify_parent: :ready,
       notify_parent: {:publish, {:new_tracks, [state.outgoing_track]}},
-      # TODO: notify owner about call ready (and maybe trying/ringing)
       notify_parent: {:forward_to_parent, :call_ready}
     ]
 
@@ -651,11 +651,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     {[terminate: :normal], %{state | endpoint_state: :terminating}}
   end
 
-
   defp spawn_call(state, module \\ OutgoingCall) do
     state
     |> case do
-      %_{} = struct -> Map.from_struct(struct)
+      %State{} = struct -> Map.from_struct(struct)
       %{} = map -> map
       _other -> raise "State is not map nor struct"
     end

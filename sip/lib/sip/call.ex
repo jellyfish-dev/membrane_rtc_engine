@@ -198,16 +198,18 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
   @spec build_headers(atom(), state(), String.t()) :: map()
   def build_headers(method, state, branch \\ Sippet.Message.create_branch()) do
+    # XXX: Maybe we can optimise the digest auth process
+    # (right now, we do the exchange `request, 401, request with digest` every time)
+    # (this might be a stupid idea, so sorry)
+
     state.headers_base
     |> Map.merge(%{
       to: {"", state.callee, %{}},
       call_id: state.call_id,
       cseq: {state.cseq + 1, method},
       content_length: 0
-      # authorization: Map.get(state.last_message.headers, :authorization, [])
     })
     |> update_in([:via], fn via -> [Tuple.append(via, %{"branch" => branch})] end)
-    |> IO.inspect(label: :HEADERS_AFTER_BUILD_HEADERS)
   end
 
   @spec make_request(Sippet.Message.request(), state()) :: state() | no_return()

@@ -212,15 +212,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
     SIP.dial(rtc_engine, sip_endpoint_id, @wait_hangup_extn)
 
-    # TODO: Temporary handling crash later should be EndpointRemoved
-    assert_receive %Message.EndpointCrashed{endpoint_id: ^sip_endpoint_id,},15_000
-
-    Process.sleep(15_000)
-
-    # assert_receive %Message.EndpointRemoved{
-    #   endpoint_id: ^sip_endpoint_id
-    # },
-    # 15_000
+    assert_receive %Message.EndpointRemoved{endpoint_id: ^sip_endpoint_id}, 15_000
   end
 
   defp create_hls_endpoint(rtc_engine, output_dir) do

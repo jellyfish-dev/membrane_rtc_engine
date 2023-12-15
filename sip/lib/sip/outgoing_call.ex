@@ -60,8 +60,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
             raise "SIP Client: Call connection error, received SDP answer is not matching our requirements: #{inspect(reason)}"
         end
 
-      403 ->
-        # Most likely, 403 Forbidden means that the other side declined the call
+      declined when declined in [403, 603] ->
+        # Most likely, these responses mean that the other side declined the call
         # and there is no voicemail server which could answer
         notify_endpoint(state.endpoint, {:end, :declined})
         state
