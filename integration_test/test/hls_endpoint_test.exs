@@ -214,13 +214,14 @@ defmodule Membrane.RTC.HLSEndpointTest do
         }
       }
 
-      audio_file_endpoint = create_audio_file_endpoint(rtc_engine, stream_id)
+      audio_file_endpoint = create_audio_file_endpoint(rtc_engine, stream_id, autoend: false)
 
       video_file_endpoint =
         create_video_file_endpoint(
           rtc_engine,
           video_file_path,
-          stream_id: stream_id
+          stream_id: stream_id,
+          autoend: false
         )
 
       :ok = Engine.add_endpoint(rtc_engine, hls_endpoint, id: hls_endpoint_id)
@@ -243,7 +244,9 @@ defmodule Membrane.RTC.HLSEndpointTest do
       assert_receive({:playlist_playable, :video, ^output_dir}, @playlist_playable_delay)
       assert_receive({:playlist_playable, :audio, ^output_dir}, @playlist_playable_delay)
 
-      Enum.each(1..7, fn _idx -> assert_receive {SendStorage, :store, %{type: :segment}}, 5000 end)
+      Enum.each(1..7, fn _idx ->
+        assert_receive {SendStorage, :store, %{type: :segment}}, 5000
+      end)
 
       Engine.remove_endpoint(rtc_engine, hls_endpoint_id)
 
@@ -554,11 +557,12 @@ defmodule Membrane.RTC.HLSEndpointTest do
       file_path: video_file_path,
       track_config: video_track_config,
       payload_type: 96,
-      autoplay: Keyword.get(opts, :autoplay, true)
+      autoplay: Keyword.get(opts, :autoplay, true),
+      autoend: Keyword.get(opts, :autoend, true)
     }
   end
 
-  defp create_audio_file_endpoint(rtc_engine, stream_id \\ nil) do
+  defp create_audio_file_endpoint(rtc_engine, stream_id \\ nil, opts \\ []) do
     audio_track_config = %FileEndpoint.TrackConfig{
       type: :audio,
       stream_id: stream_id,
@@ -574,7 +578,9 @@ defmodule Membrane.RTC.HLSEndpointTest do
       file_path: Path.join(@fixtures_dir, "audio.aac"),
       track_config: audio_track_config,
       payload_type: 108,
-      after_source_transformation: &transform_aac_to_opus/1
+      after_source_transformation: &transform_aac_to_opus/1,
+      autoplay: Keyword.get(opts, :autoplay, true),
+      autoend: Keyword.get(opts, :autoend, true)
     }
   end
 

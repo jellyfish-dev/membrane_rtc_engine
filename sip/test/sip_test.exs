@@ -94,8 +94,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
   @tag :tmp_dir
   test "two sip endpoints", %{
-    rtc_engine: rtc_engine,
-    tmp_dir: tmp_dir
+    rtc_engine: rtc_engine
   } do
     sip_endpoint_id1 = "sip-endpoint1"
     sip_endpoint_id2 = "sip-endpoint2"
