@@ -53,7 +53,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
       # Engine deps
       {:membrane_rtc_engine, path: "../engine"},
       {:membrane_rtc_engine_webrtc, path: "../webrtc"},
-      # TODO move to integration_test
+      # TODO get rid of these two
       {:membrane_rtc_engine_file, path: "../file", only: :test},
       {:membrane_rtc_engine_hls, path: "../hls", only: :test},
       {:membrane_tee_plugin, "~> 0.12.0"},

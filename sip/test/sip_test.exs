@@ -40,6 +40,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
       rtc_engine: rtc_engine,
       tmp_dir: tmp_dir
     } do
+      # TODO move this test to integration_test
       asterisk_output = "./asterisk/recordings/my-file0-out.alaw"
 
       File.rm(asterisk_output)
