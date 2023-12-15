@@ -22,17 +22,17 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
 
   @impl Call
   def after_init(state) do
-    {body, content_length} = SDP.proposal(state.external_ip, state.rtp_port)
+    proposal = SDP.proposal(state.external_ip, state.rtp_port)
 
     headers =
       Call.build_headers(:invite, state)
-      |> Map.replace(:content_length, content_length)
+      |> Map.replace(:content_length, byte_size(proposal))
 
     message =
       Sippet.Message.build_request(:invite, to_string(state.callee))
       |> Map.put(:headers, headers)
       |> Sippet.Message.put_header(:content_type, "application/sdp")
-      |> Map.replace(:body, body)
+      |> Map.replace(:body, proposal)
 
     Call.make_request(message, state)
   end

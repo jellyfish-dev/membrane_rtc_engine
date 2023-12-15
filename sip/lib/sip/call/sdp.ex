@@ -1,21 +1,35 @@
 defmodule Membrane.RTC.Engine.Endpoint.SIP.Call.SDP do
   @moduledoc false
 
+  alias Membrane.RTP
   alias Membrane.RTP.PayloadFormat
 
+  # Accepting only G.711 A-law
   @accepted_payload_types [8]
   @session_name "TeleEngine"
   @username "Engine"
 
-  @spec proposal(String.t(), 1..65_535) :: {String.t(), non_neg_integer()}
-  def proposal(external_ip, rtp_port) do
-    sdp = create_proposal(external_ip, rtp_port) |> to_string()
+  @type session_params :: %{
+          rtp_payload_fmt: {RTP.payload_type_t(), %{encoding_name: term(), clock_rate: term()}},
+          connection_data: ExSDP.ConnectionData.t(),
+          port: 1..65_535
+        }
 
-    {sdp, byte_size(sdp)}
+  @spec proposal(String.t(), 1..65_535) :: String.t()
+  def proposal(external_ip, rtp_port) do
+    connection_data = %ExSDP.ConnectionData{address: {:IP4, external_ip}, network_type: "IN"}
+    media = ExSDP.Media.new(:audio, rtp_port, "RTP/AVP", @accepted_payload_types)
+
+    ExSDP.new(address: {:IP4, external_ip}, session_name: @session_name, username: @username)
+    |> Map.replace(:connection_data, connection_data)
+    |> ExSDP.add_media(media)
+    |> ExSDP.add_attribute("sendrecv")
+    |> ExSDP.add_attribute("rtcp-mux")
+    |> to_string()
   end
 
   @spec parse(String.t()) ::
-          {:ok, map()}
+          {:ok, session_params()}
           | {:error,
              :not_supported_addr_type
              | :no_audio_media
@@ -52,16 +66,5 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call.SDP do
       [] ->
         {:error, :no_common_fmt}
     end
-  end
-
-  defp create_proposal(external_ip, rtp_port) do
-    connection_data = %ExSDP.ConnectionData{address: {:IP4, external_ip}, network_type: "IN"}
-    media = ExSDP.Media.new(:audio, rtp_port, "RTP/AVP", @accepted_payload_types)
-
-    ExSDP.new(address: {:IP4, external_ip}, session_name: @session_name, username: @username)
-    |> Map.replace(:connection_data, connection_data)
-    |> ExSDP.add_media(media)
-    |> ExSDP.add_attribute("sendrecv")
-    |> ExSDP.add_attribute("rtcp-mux")
   end
 end
