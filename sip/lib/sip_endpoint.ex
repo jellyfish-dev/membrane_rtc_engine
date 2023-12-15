@@ -614,7 +614,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
         Logger.warning("SIP Endpoint: Call ended with reason: #{inspect(reason)}")
     end
 
-    actions = [:ready, notify_parent: {:forward_to_parent, msg}, notify_parent: :finished]
+    actions = [notify_parent: :ready, notify_parent: {:forward_to_parent, msg}, notify_parent: :finished]
 
     {actions, %{state | endpoint_state: :terminating}}
   end
