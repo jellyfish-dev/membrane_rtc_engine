@@ -67,13 +67,31 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
         state
 
       _other ->
-        Call.handle_generic_response(status_code, response, state)
+        Call.handle_generic_response(status_code, response, state, &handle_transfer/3)
     end
   end
 
   @impl Call
   def handle_response(_method, status_code, response, state) do
-    Call.handle_generic_response(status_code, response, state)
+    Call.handle_generic_response(status_code, response, state, &handle_transfer/3)
+  end
+
+  @impl Call
+  def handle_transfer(status_code, response, state) do
+
+
+    case response.headers.cseq do
+      {_cseq, :invite} when status_code in [300, 301, 302] ->
+        [{"Transfer", uri, _map} | _] = response.headers.contact
+
+        state = %{state | callee: uri}
+
+        after_init(state)
+
+      _other ->
+        SIP.Call.default_handle_transfer(status_code, response,state)
+    end
+
   end
 
   @impl Call
