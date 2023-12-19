@@ -324,6 +324,13 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   @impl true
   def handle_parent_notification({:dial, phone_number}, _ctx, state) do
+    # Strip whitespace and separator characters
+    phone_number = String.replace(phone_number, ~r/[-.() \t\r\n]+/, "")
+
+    unless Regex.match?(~r/^\+?\d+$/, phone_number) do
+      raise "Invalid phone number: #{inspect(phone_number)}. Only digits and `+` are allowed in number"
+    end
+
     state =
       case state.endpoint_state do
         :unregistered ->
