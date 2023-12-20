@@ -1102,6 +1102,13 @@ defmodule Membrane.RTC.Engine do
   end
 
   defp fulfill_subscriptions(subscriptions, state) do
+    subscriptions =
+      Enum.reject(subscriptions, fn subscription ->
+        state
+        |> get_in([:subscriptions, subscription.endpoint_id])
+        |> is_nil()
+      end)
+
     links = build_subscription_links(subscriptions, state)
 
     Enum.reduce(subscriptions, {links, state}, fn subscription, {links, state} ->
