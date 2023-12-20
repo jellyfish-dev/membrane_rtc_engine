@@ -65,7 +65,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.SippetCore do
       SIP client: Received an error (key=#{inspect(client_or_server_key)}): #{inspect(reason)}
     """)
 
-    # route the error to your UA or proxy process
-    # TODO Honestly I don't know how to handle those errors, probably is nicely to pass them up.
+    # XXX: Routing this error would necessitate running a unique process
+    # which would hold the mapping %{transaction_key => call_id} GLOBALLY,
+    # for all SIP Endpoints on the machine. This seems like an anti-pattern...
   end
 end

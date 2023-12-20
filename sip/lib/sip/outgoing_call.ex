@@ -84,6 +84,12 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   end
 
   @impl Call
+  def handle_response(:invite, busy, _response, state) when busy in [486, 600] do
+    notify_endpoint(state.endpoint, {:end, :busy})
+    state
+  end
+
+  @impl Call
   def handle_response(:invite, 487, _response, state) do
     # Request Terminated -- this is the case when the INVITE was cancelled
     # by a separate CANCEL request before receiving a final response

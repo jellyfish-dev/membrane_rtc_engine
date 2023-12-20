@@ -615,6 +615,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       :user_hangup ->
         Logger.info("SIP Endpoint: Call ended by user")
 
+      :busy ->
+        Logger.info("SIP Endpoint: Call declined, other side is busy")
+
       :declined ->
         Logger.info("SIP Endpoint: Call declined by other side")
 
