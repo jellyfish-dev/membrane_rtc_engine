@@ -19,7 +19,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.RegisterCall do
 
   @impl Call
   def handle_response(:register, status_code, response, state) do
-    Call.handle_generic_response(status_code, response, state, &handle_transfer/3)
+    Call.handle_generic_response(status_code, response, state)
   end
 
   @impl GenServer

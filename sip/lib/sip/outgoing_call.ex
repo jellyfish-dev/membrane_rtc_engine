@@ -38,60 +38,61 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   end
 
   @impl Call
-  def handle_response(:invite, status_code, response, state) do
-    case status_code do
-      status_code when status_code in 100..199 ->
-        handle_provisional_invite_response(status_code, state)
-        state
-
-      200 ->
-        send_ack(response, state)
-
-        case SDP.parse(response.body) do
-          {:ok, connection_info} ->
-            notify_endpoint(state.endpoint, {:call_ready, connection_info})
-            state
-
-          {:error, reason} ->
-            build_and_send_request(:bye, state)
-            # Give Sippet time to send the request (this is async)
-            Process.sleep(50)
-
-            raise "SIP Client: Call connection error, received SDP answer is not matching our requirements: #{inspect(reason)}"
-        end
-
-      declined when declined in [403, 603] ->
-        # Most likely, these responses mean that the other side declined the call
-        # and there is no voicemail server which could answer
-        notify_endpoint(state.endpoint, {:end, :declined})
-        state
-
-      _other ->
-        Call.handle_generic_response(status_code, response, state, &handle_transfer/3)
+  def handle_response(:invite, provisional, _response, state) when provisional in 100..199 do
+    case provisional do
+      100 -> notify_endpoint(state.endpoint, :trying)
+      180 -> notify_endpoint(state.endpoint, :ringing)
+      # Session Progress
+      183 -> nil
+      _xx -> Logger.warning("SIP Client: Unknown provisional response #{provisional}. Ignoring")
     end
+
+    state
+  end
+
+  @impl Call
+  def handle_response(:invite, 200, response, state) do
+    send_ack(response, state)
+
+    case SDP.parse(response.body) do
+      {:ok, connection_info} ->
+        notify_endpoint(state.endpoint, {:call_ready, connection_info})
+        state
+
+      {:error, reason} ->
+        _state = build_and_send_request(:bye, state)
+        # Give Sippet time to send the request (this is async)
+        Process.sleep(50)
+
+        raise "SIP Client: Call connection error, received SDP answer is not matching our requirements: #{inspect(reason)}"
+    end
+  end
+
+  @impl Call
+  def handle_response(:invite, transfer, response, state) when transfer in [300, 301, 302] do
+    [{"Transfer", uri, _map} | _] = response.headers.contact
+
+    state = %{state | callee: uri}
+
+    after_init(state)
+  end
+
+  @impl Call
+  def handle_response(:invite, declined, _response, state) when declined in [403, 603] do
+    notify_endpoint(state.endpoint, {:end, :declined})
+    state
+  end
+
+  @impl Call
+  def handle_response(:invite, 487, _response, state) do
+    # Request Terminated -- this is the case when the INVITE was cancelled
+    # by a separate CANCEL request before receiving a final response
+    state
   end
 
   @impl Call
   def handle_response(_method, status_code, response, state) do
-    Call.handle_generic_response(status_code, response, state, &handle_transfer/3)
-  end
-
-  @impl Call
-  def handle_transfer(status_code, response, state) do
-
-
-    case response.headers.cseq do
-      {_cseq, :invite} when status_code in [300, 301, 302] ->
-        [{"Transfer", uri, _map} | _] = response.headers.contact
-
-        state = %{state | callee: uri}
-
-        after_init(state)
-
-      _other ->
-        SIP.Call.default_handle_transfer(status_code, response,state)
-    end
-
+    Call.handle_generic_response(status_code, response, state)
   end
 
   @impl Call
@@ -115,7 +116,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
 
   @impl GenServer
   def handle_cast(:cancel, state) do
-    build_and_send_request(:cancel, state)
+    state = build_and_send_request(:cancel, state)
 
     # Give Sippet time to send the request (this is async)
     Process.sleep(50)
@@ -127,7 +128,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
 
   @impl GenServer
   def handle_cast(:bye, state) do
-    build_and_send_request(:bye, state)
+    state = build_and_send_request(:bye, state)
 
     # Give Sippet time to send the request (this is async)
     Process.sleep(50)
@@ -158,18 +159,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   defp notify_endpoint(endpoint, message) do
     send(endpoint, {:call_info, message})
   end
-
-  defp handle_provisional_invite_response(100, state),
-    do: notify_endpoint(state.endpoint, :trying)
-
-  defp handle_provisional_invite_response(180, state),
-    do: notify_endpoint(state.endpoint, :ringing)
-
-  # Session Progress
-  defp handle_provisional_invite_response(183, _state), do: nil
-
-  defp handle_provisional_invite_response(code, _state),
-    do: Logger.warning("SIP Client: Received unknown provisional response #{code}. Ignoring.")
 
   defp send_ack(response, state) do
     %Sippet.Message{

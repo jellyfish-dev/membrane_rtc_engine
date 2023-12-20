@@ -48,12 +48,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
   @type state :: State.t()
 
-  @type handle_transfer_t :: (
-    status_code :: pos_integer(),
-    response :: Sippet.Message.response(),
-    state :: state()
-   ->  state() | no_return())
-
   @callback start_link(Settings.t()) :: {id(), pid()}
   @callback after_init(state :: state()) :: state()
   @callback handle_request(
@@ -67,11 +61,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
               response :: Sippet.Message.response(),
               state :: state()
             ) :: state()
-  @callback handle_transfer(
-              status_code :: pos_integer(),
-              response :: Sippet.Message.response(),
-              state :: state()
-            ) :: state() | no_return()
 
   defmacro __using__(_opts) do
     quote location: :keep do
@@ -108,16 +97,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       end
 
       @impl SIP.Call
-      def handle_transfer(status_code, response, state) do
-        SIP.Call.default_handle_transfer(status_code,response, state)
-      end
-
-      @impl SIP.Call
       def handle_response(_method, status_code, response, state) do
-        SIP.Call.handle_generic_response(status_code, response, state, &handle_transfer/3)
+        SIP.Call.handle_generic_response(status_code, response, state)
       end
 
-      defoverridable after_init: 1, handle_request: 3, handle_response: 4, handle_transfer: 3
+      defoverridable after_init: 1, handle_request: 3, handle_response: 4
 
       @impl GenServer
       def init({call_id, settings}) do
@@ -173,7 +157,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
   def handle_request(call_id, request) do
     GenServer.cast(registry_id(call_id), {:request, request})
   end
-
 
   @spec handle_response(id(), term()) :: :ok
   def handle_response(call_id, response) do
@@ -242,9 +225,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
     end
   end
 
-  @spec handle_generic_response(pos_integer(), Sippet.Message.response(), state(), handle_transfer_t()) ::
+  @spec handle_generic_response(pos_integer(), Sippet.Message.response(), state()) ::
           state() | no_return()
-  def handle_generic_response(status_code, response, state, handle_transfer) do
+  def handle_generic_response(status_code, response, state) do
     case status_code do
       success when success in [200, 204] ->
         state
@@ -256,7 +239,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
         raise "SIP Client: Received 407 response. Proxy authorization is unsupported"
 
       redirect when redirect in 300..399 ->
-        handle_transfer.(status_code, response, state)
+        raise """
+        SIP Client: Received redirection response with code #{status_code}.
+        Redirections need to be handled by the module implementing the `Call` behaviour
+        """
 
       _other_failure ->
         raise """
@@ -265,11 +251,6 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
           #{inspect(response)}
         """
     end
-  end
-
-  @spec default_handle_transfer(pos_integer(), Sippet.Message.response(), state()) :: no_return()
-  def default_handle_transfer(status_code, _response, _state) do
-    raise "SIP Client: Received redirection response with code #{status_code}. Redirections are unsupported"
   end
 
   defp handle_unauthorized(response, state) do
@@ -287,7 +268,4 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
         make_request(request, state)
     end
   end
-
-
-
 end

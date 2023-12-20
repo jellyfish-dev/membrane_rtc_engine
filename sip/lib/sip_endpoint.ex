@@ -314,7 +314,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   @impl true
   def handle_pad_removed(Pad.ref(:input, track_id), _ctx, state) do
     state = %{state | incoming_tracks: Map.delete(state.incoming_tracks, track_id)}
-    children_to_remove = [:track_receiver,:depayloader ,:opus_decoder] |> Enum.map(&{&1, track_id})
+
+    children_to_remove =
+      [:track_receiver, :depayloader, :opus_decoder] |> Enum.map(&{&1, track_id})
 
     {[remove_children: children_to_remove], state}
   end
