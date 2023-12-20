@@ -107,11 +107,29 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
   defp docs do
     [
       main: "readme",
-      extras: ["README.md", "CHANGELOG.md", "LICENSE"],
+      extras: extras(),
       formatters: ["html"],
+      groups_for_extras: groups_for_extras(),
       source_ref: @source_ref,
       source_url_pattern: "#{@engine_github_url}/blob/#{@source_ref}/sip/%{path}#L%{line}",
       nest_modules_by_prefix: [Membrane.RTC.Engine.Endpoint]
+    ]
+  end
+
+  defp extras() do
+    [
+      "README.md",
+      "CHANGELOG.md",
+      "LICENSE",
+
+      # internal docs
+      "internal_docs/sip_endpoint.md"
+    ]
+  end
+
+  defp groups_for_extras() do
+    [
+      {"Developer docs", ~r/internal_docs\//}
     ]
   end
 end

@@ -63,6 +63,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     Creates a RegistrarCredentials struct from strings. The address is parsed and can be:
       - an FQDN, e.g. "my-sip-registrar.net",
       - an IPv4 in string form, e.g. "1.2.3.4".
+
     Both can have a specified port, e.g. "5.6.7.8:9999".
     If not given, the default SIP port 5060 will be assumed.
     """
