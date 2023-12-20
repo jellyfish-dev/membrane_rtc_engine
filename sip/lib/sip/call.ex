@@ -26,7 +26,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
             callee: Sippet.URI.t() | nil,
             headers_base: Headers.t(),
             cseq: non_neg_integer(),
-            last_message: Sippet.Message.t() | nil
+            last_message: Sippet.Message.t() | nil,
+            pending_requests: %{non_neg_integer() => true}
           }
 
     @enforce_keys [
@@ -41,7 +42,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       :callee,
       :headers_base,
       :cseq,
-      :last_message
+      :last_message,
+      :pending_requests
     ]
     defstruct @enforce_keys
   end
@@ -109,26 +111,32 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
         {:ok, __MODULE__.after_init(state)}
       end
 
-      @impl GenServer
-      def handle_cast(
-            {:response, %{headers: %{cseq: {cseq, method}}} = response},
-            %{cseq: cseq} = state
-          ) do
-        Logger.debug("Received response in call: #{inspect(response)}")
+      defguardp is_request_pending(state, cseq) when is_map_key(state.pending_requests, cseq)
 
-        state =
-          __MODULE__.handle_response(method, response.start_line.status_code, response, state)
+      # This case is disabled for INVITEs because:
+      # * `pending_requests` is primarily used for timeouts
+      # * when we send an INVITE, the server will respond with 100 Trying, 180 Ringing and then 200 OK
+      # * since we don't want to raise due to timeout if we receive a response from the server,
+      #   we're deleting the entire INVITE request from `pending_requests` after receiving 100
+      # * ...which means the case below would kick in when we receive 180 and 200, and nothing would work
+      @impl GenServer
+      def handle_cast({:response, %Sippet.Message{headers: %{cseq: {cseq, method}}}}, state)
+          when method != :invite and not is_request_pending(state, cseq) do
+        Logger.warning(
+          "SIP Client: Received response with CSeq #{cseq}, for which there is no pending request. Ignoring."
+        )
 
         {:noreply, state}
       end
 
       @impl GenServer
-      def handle_cast({:response, %Sippet.Message{headers: %{cseq: {cseq, _method}}}}, state) do
-        Logger.warning(
-          "SIP Client: Received response with CSeq #{cseq}, which doesn't match last request CSeq (#{state.cseq}). Ignoring."
-        )
+      def handle_cast({:response, %{headers: %{cseq: {cseq, method}}} = response}, state) do
+        Logger.debug("Received response in call: #{inspect(response)}")
 
-        {:noreply, state}
+        state =
+          __MODULE__.handle_response(method, response.start_line.status_code, response, state)
+
+        {:noreply, %{state | pending_requests: Map.delete(state.pending_requests, cseq)}}
       end
 
       @impl GenServer
@@ -136,8 +144,20 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
         Logger.debug("Received request in call: #{inspect(request)}")
         {:noreply, __MODULE__.handle_request(method, request, state)}
       end
+
+      @impl GenServer
+      def handle_info({:timeout, cseq}, state) when is_request_pending(state, cseq) do
+        raise "SIP Client: Timeout. Received no response for request with CSeq #{cseq}"
+      end
+
+      @impl GenServer
+      def handle_info({:timeout, _cseq}, state) do
+        {:noreply, state}
+      end
     end
   end
+
+  @timeout_ms 32_000
 
   ## MANAGEMENT API
 
@@ -191,7 +211,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       callee: callee,
       headers_base: Headers.create_headers_base(from_address),
       cseq: 0,
-      last_message: nil
+      last_message: nil,
+      pending_requests: %{}
     })
     |> then(&struct!(State, &1))
   end
@@ -217,7 +238,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
     with :ok <- SippetCore.send_message(message) do
       {cseq, _method} = message.headers.cseq
 
-      %{state | cseq: cseq, last_message: message}
+      Process.send_after(self(), {:timeout, cseq}, @timeout_ms)
+
+      pending_requests = Map.put(state.pending_requests, cseq, true)
+      %{state | cseq: cseq, last_message: message, pending_requests: pending_requests}
     else
       error ->
         Logger.debug("Send failed with message: #{inspect(message)}")
