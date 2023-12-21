@@ -117,7 +117,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       defguardp is_request_pending(state, cseq) when is_map_key(state.pending_requests, cseq)
 
       @impl GenServer
-      def handle_cast({:response, %{headers: %{cseq: {cseq, _method}}}}, state) when not is_request_pending(state, cseq) do
+      def handle_cast({:response, %{headers: %{cseq: {cseq, _method}}}}, state)
+          when not is_request_pending(state, cseq) do
         Logger.warning(
           "SIP Client: Received response with CSeq #{cseq}, for which there is no pending request. Ignoring."
         )
@@ -202,7 +203,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
     callee =
       if is_nil(settings.phone_number),
         do: nil,
-      else: %{settings.registrar_credentials.uri | userinfo: settings.phone_number}
+        else: %{settings.registrar_credentials.uri | userinfo: settings.phone_number}
 
     settings
     |> Map.from_struct()
@@ -240,7 +241,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
       Process.send_after(self(), {:timeout, cseq}, @timeout_ms)
 
-      pending_requests = Map.put(state.pending_requests, cseq, System.monotonic_time(:millisecond))
+      pending_requests =
+        Map.put(state.pending_requests, cseq, System.monotonic_time(:millisecond))
+
       %{state | cseq: cseq, last_message: message, pending_requests: pending_requests}
     else
       error ->

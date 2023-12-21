@@ -5,19 +5,21 @@ defmodule Membrane.RTC.CallTest do
   alias Membrane.RTC.Engine.Endpoint.SIP.Call
 
   setup do
-    state = Call.init_state("my-call-id", %Call.Settings{
-      endpoint: self(),
-      rtp_port: 8888,
-      sip_port: 8889,
-      registrar_credentials: SIP.RegistrarCredentials.new(
-        address: "localhost:9999",
-        username: "user0",
-        password: "some-password"
-      ),
-      external_ip: "1.2.3.4",
-      register_interval: 30_000,
-      phone_number: "12345678"
-    })
+    state =
+      Call.init_state("my-call-id", %Call.Settings{
+        endpoint: self(),
+        rtp_port: 8888,
+        sip_port: 8889,
+        registrar_credentials:
+          SIP.RegistrarCredentials.new(
+            address: "localhost:9999",
+            username: "user0",
+            password: "some-password"
+          ),
+        external_ip: "1.2.3.4",
+        register_interval: 30_000,
+        phone_number: "12345678"
+      })
 
     [state: state]
   end
@@ -48,7 +50,10 @@ defmodule Membrane.RTC.CallTest do
 
       # A timeout should be triggered if a request has been made more than 32 seconds ago
       state = update_in(state, [:pending_requests, cseq], &(&1 - 50_000))
-      assert_raise RuntimeError, ~r/timeout/i, fn -> SIP.OutgoingCall.handle_info({:timeout, cseq}, state) end
+
+      assert_raise RuntimeError, ~r/timeout/i, fn ->
+        SIP.OutgoingCall.handle_info({:timeout, cseq}, state)
+      end
     end
 
     test "work correctly for multi-response INVITE requests", %{state: state} do
@@ -61,6 +66,7 @@ defmodule Membrane.RTC.CallTest do
       assert Map.fetch!(state.pending_requests, cseq) < time_before_receiving_response
 
       Process.sleep(10)
+
       {:noreply, state} =
         Sippet.Message.build_response(100)
         |> Map.put(:headers, %{cseq: {cseq, :invite}})
