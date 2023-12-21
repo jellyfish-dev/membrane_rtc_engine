@@ -112,7 +112,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
       groups_for_extras: groups_for_extras(),
       source_ref: @source_ref,
       source_url_pattern: "#{@engine_github_url}/blob/#{@source_ref}/sip/%{path}#L%{line}",
-      nest_modules_by_prefix: [Membrane.RTC.Engine.Endpoint]
+      nest_modules_by_prefix: [Membrane.RTC.Engine.Endpoint],
+      before_closing_body_tag: &before_closing_body_tag/1
     ]
   end
 
@@ -131,5 +132,35 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
     [
       {"Developer docs", ~r/internal_docs\//}
     ]
+  end
+
+  defp before_closing_body_tag(:html) do
+    """
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@9.1.1/dist/mermaid.min.js"></script>
+    <style>
+      .diagramWrapper svg {
+        background-color: white;
+      }
+    </style>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        mermaid.initialize({ startOnLoad: false });
+        let id = 0;
+        for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+          const preEl = codeEl.parentElement;
+          const graphDefinition = codeEl.textContent;
+          const graphEl = document.createElement("div");
+          graphEl.classList.add("diagramWrapper");
+          const graphId = "mermaid-graph-" + id++;
+          mermaid.render(graphId, graphDefinition, function (svgSource, bindListeners) {
+            graphEl.innerHTML = svgSource;
+            bindListeners && bindListeners(graphEl);
+            preEl.insertAdjacentElement("afterend", graphEl);
+            preEl.remove();
+          });
+        }
+      });
+    </script>
+    """
   end
 end
