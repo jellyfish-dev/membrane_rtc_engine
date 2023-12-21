@@ -229,6 +229,10 @@ defmodule Membrane.RTC.SIPEndpointTest do
     hls_endpoint = create_hls_endpoint(rtc_engine, output_dir)
     :ok = Engine.add_endpoint(rtc_engine, hls_endpoint, id: hls_endpoint_id)
 
+    assert_receive %Message.EndpointAdded{
+      endpoint_id: ^hls_endpoint_id
+    }, 1_000
+
     sip_endpoint = create_sip_endpoint(rtc_engine)
     :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: sip_endpoint_id)
 
@@ -244,8 +248,6 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
     SIP.dial(rtc_engine, sip_endpoint_id, extension)
 
-    FileEndpoint.start_sending(rtc_engine, file_endpoint_id)
-
     assert_receive %Message.TrackAdded{
                      endpoint_id: ^sip_endpoint_id,
                      track_id: sip_track_id
@@ -254,11 +256,19 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
     :ok = Engine.message_endpoint(rtc_engine, hls_endpoint_id, {:subscribe, [sip_track_id]})
 
-    Process.sleep(15_000)
+    FileEndpoint.start_sending(rtc_engine, file_endpoint_id)
 
-    Engine.remove_endpoint(rtc_engine, sip_endpoint_id)
+    assert_receive {:playlist_playable, _content, _output_path}, 30_000
 
-    Process.sleep(15_000)
+    assert_receive %Message.EndpointRemoved{
+      endpoint_id: ^sip_endpoint_id
+    }, 50_000
+
+    Engine.remove_endpoint(rtc_engine, hls_endpoint_id)
+
+    assert_receive %Message.EndpointRemoved{
+      endpoint_id: ^hls_endpoint_id
+    }, 50_000
 
     assert File.exists?(asterisk_output)
     check_alaw_file(asterisk_output)
@@ -345,9 +355,12 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
     assert audio_stream["sample_rate"] == "8000"
 
-    duration = Float.parse(data["format"]["duration"]) |> elem(0)
 
-    assert duration >= 5
+    duration = data["format"]["duration"]
+    assert not is_nil(duration)
+    new_duration = Float.parse(duration) |> elem(0)
+
+    assert new_duration >= 5
   end
 
   defp check_hls_file(audio_directory) do
