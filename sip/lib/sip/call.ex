@@ -27,7 +27,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
             headers_base: Headers.t(),
             cseq: non_neg_integer(),
             last_message: Sippet.Message.t() | nil,
-            pending_requests: %{non_neg_integer() => true}
+            # Pending requests:
+            #   %{cseq => time when request was made
+            #             or when last provisional response to the request was received}
+            pending_requests: %{non_neg_integer() => integer()}
           }
 
     @enforce_keys [
@@ -113,15 +116,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
       defguardp is_request_pending(state, cseq) when is_map_key(state.pending_requests, cseq)
 
-      # This case is disabled for INVITEs because:
-      # * `pending_requests` is primarily used for timeouts
-      # * when we send an INVITE, the server will respond with 100 Trying, 180 Ringing and then 200 OK
-      # * since we don't want to raise due to timeout if we receive a response from the server,
-      #   we're deleting the entire INVITE request from `pending_requests` after receiving 100
-      # * ...which means the case below would kick in when we receive 180 and 200, and nothing would work
       @impl GenServer
-      def handle_cast({:response, %Sippet.Message{headers: %{cseq: {cseq, method}}}}, state)
-          when method != :invite and not is_request_pending(state, cseq) do
+      def handle_cast({:response, %{headers: %{cseq: {cseq, _method}}}}, state) when not is_request_pending(state, cseq) do
         Logger.warning(
           "SIP Client: Received response with CSeq #{cseq}, for which there is no pending request. Ignoring."
         )
@@ -132,11 +128,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
       @impl GenServer
       def handle_cast({:response, %{headers: %{cseq: {cseq, method}}} = response}, state) do
         Logger.debug("Received response in call: #{inspect(response)}")
+        status_code = response.start_line.status_code
 
-        state =
-          __MODULE__.handle_response(method, response.start_line.status_code, response, state)
+        state = __MODULE__.handle_response(method, status_code, response, state)
 
-        {:noreply, %{state | pending_requests: Map.delete(state.pending_requests, cseq)}}
+        {:noreply, SIP.Call.update_pending_requests(response, state)}
       end
 
       @impl GenServer
@@ -147,7 +143,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
       @impl GenServer
       def handle_info({:timeout, cseq}, state) when is_request_pending(state, cseq) do
-        raise "SIP Client: Timeout. Received no response for request with CSeq #{cseq}"
+        if SIP.Call.timeout?(cseq, state) do
+          raise "SIP Client: Timeout. Received no response for request with CSeq #{cseq}"
+        end
+
+        {:noreply, state}
       end
 
       @impl GenServer
@@ -202,7 +202,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
     callee =
       if is_nil(settings.phone_number),
         do: nil,
-        else: %{settings.registrar_credentials.uri | userinfo: settings.phone_number}
+      else: %{settings.registrar_credentials.uri | userinfo: settings.phone_number}
 
     settings
     |> Map.from_struct()
@@ -240,13 +240,33 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.Call do
 
       Process.send_after(self(), {:timeout, cseq}, @timeout_ms)
 
-      pending_requests = Map.put(state.pending_requests, cseq, true)
+      pending_requests = Map.put(state.pending_requests, cseq, System.monotonic_time(:millisecond))
       %{state | cseq: cseq, last_message: message, pending_requests: pending_requests}
     else
       error ->
         Logger.debug("Send failed with message: #{inspect(message)}")
         raise "SIP Client: Unable to send message: #{inspect(error)}"
     end
+  end
+
+  @spec update_pending_requests(Sippet.Message.response(), state()) :: state()
+  def update_pending_requests(response, state) do
+    {cseq, _method} = response.headers.cseq
+
+    pending_requests =
+      if response.start_line.status_code in 100..199 do
+        Process.send_after(self(), {:timeout, cseq}, @timeout_ms)
+        Map.put(state.pending_requests, cseq, System.monotonic_time(:millisecond))
+      else
+        Map.delete(state.pending_requests, cseq)
+      end
+
+    %{state | pending_requests: pending_requests}
+  end
+
+  @spec timeout?(non_neg_integer(), state()) :: boolean() | no_return()
+  def timeout?(cseq, state) do
+    System.monotonic_time(:millisecond) >= Map.fetch!(state.pending_requests, cseq) + @timeout_ms
   end
 
   @spec handle_generic_response(pos_integer(), Sippet.Message.response(), state()) ::

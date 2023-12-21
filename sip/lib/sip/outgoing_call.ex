@@ -97,6 +97,13 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
   end
 
   @impl Call
+  def handle_response(:invite, 204, _response, _state) do
+    # 204 is a success response, but we need SDP from the response body to setup the session
+    # This shouldn't ever happen, but if we don't handle it here it would get silently ignored
+    raise "SIP Client: Received 204 No Content in response to INVITE"
+  end
+
+  @impl Call
   def handle_response(_method, status_code, response, state) do
     Call.handle_generic_response(status_code, response, state)
   end
