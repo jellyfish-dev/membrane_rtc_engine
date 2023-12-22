@@ -480,6 +480,7 @@ defmodule Membrane.RTC.Engine do
       :ok ->
         {spec, state} = fulfill_or_postpone_subscription(subscription, ctx, state)
         send(endpoint_pid, {ref, :ok})
+        Membrane.Logger.info("Subscription fullfiled by #{endpoint_id} on track: #{track_id}")
         {[spec: {spec, log_metadata: [rtc: state.id]}], state}
 
       {:error, _reason} = error ->

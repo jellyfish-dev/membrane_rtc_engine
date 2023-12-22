@@ -61,6 +61,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
 
       {:error, reason} ->
         _state = build_and_send_request(:bye, state)
+
         # Give Sippet time to send the request (this is async)
         Process.sleep(50)
 

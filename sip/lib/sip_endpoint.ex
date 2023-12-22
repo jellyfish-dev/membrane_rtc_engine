@@ -319,7 +319,19 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     children_to_remove =
       [:track_receiver, :depayloader, :opus_decoder] |> Enum.map(&{&1, track_id})
 
-    {[remove_children: children_to_remove], state}
+    actions =[remove_children: children_to_remove]
+
+    if map_size(state.incoming_tracks) == 0 do
+
+
+      {actions ++ [notify_parent: :finished], state}
+    else
+      {actions, state}
+
+    end
+
+
+
   end
 
   @impl true
