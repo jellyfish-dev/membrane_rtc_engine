@@ -64,17 +64,19 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
         # Give Sippet time to send the request (this is async)
         Process.sleep(50)
 
-        raise "SIP Client: Call connection error, received SDP answer is not matching our requirements: #{inspect(reason)}"
+        raise "SIP Client: Received SDP answer is not matching our requirements: #{inspect(reason)}"
     end
   end
 
   @impl Call
   def handle_response(:invite, transfer, response, state) when transfer in [300, 301, 302] do
-    [{"Transfer", uri, _map} | _] = response.headers.contact
+    case Sippet.Message.get_header(response, :contact, []) do
+      [{"Transfer", uri, _map} | _] ->
+        after_init(%{state | callee: uri})
 
-    state = %{state | callee: uri}
-
-    after_init(state)
+      _other ->
+        raise "SIP Client: Received #{transfer} response, but were unable to parse transfer URI"
+    end
   end
 
   @impl Call
