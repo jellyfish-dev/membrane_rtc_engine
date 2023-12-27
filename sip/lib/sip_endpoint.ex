@@ -274,7 +274,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       |> via_out(Pad.ref(:output, state.incoming_ssrc),
         options: [depayloader: Membrane.RTP.G711.Depayloader]
       )
-      |> child({:g711_decoder, track_id}, Membrane.G711.FFmpeg.Decoder)
+      |> child({:audio_codec_decoder, track_id}, Membrane.G711.FFmpeg.Decoder)
       |> child({:converter, track_id}, %Membrane.FFmpeg.SWResample.Converter{
         input_stream_format: %RawAudio{channels: 1, sample_format: :s16le, sample_rate: 8_000},
         output_stream_format: %RawAudio{channels: 1, sample_format: :s16le, sample_rate: 48_000}
@@ -576,8 +576,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
         input_stream_format: %RawAudio{channels: 1, sample_format: :s16le, sample_rate: 48_000},
         output_stream_format: %RawAudio{channels: 1, sample_format: :s16le, sample_rate: 8_000}
       })
-      |> child(:g711_encoder, Membrane.G711.FFmpeg.Encoder)
-      |> child(:g711_parser, %Membrane.G711.FFmpeg.Parser{overwrite_pts?: true})
+      |> child(:audio_codec_encoder, Membrane.G711.FFmpeg.Encoder)
+      |> child(:audio_codec_parser, %Membrane.G711.FFmpeg.Parser{overwrite_pts?: true})
       |> via_in(Pad.ref(:input, state.outgoing_ssrc),
         options: [payloader: Membrane.RTP.G711.Payloader]
       )
