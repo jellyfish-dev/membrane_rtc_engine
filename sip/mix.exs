@@ -72,7 +72,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
        github: "jellyfish-dev/membrane_g711_ffmpeg_plugin", branch: "fix/old-channel-layout-api"},
       {:membrane_rtp_g711_plugin, "~> 0.2.0"},
       {:membrane_opus_plugin, "~> 0.19.0"},
-      {:membrane_ffmpeg_swresample_plugin, "~> 0.19.0"},
+      {:membrane_ffmpeg_swresample_plugin, "~> 0.19.1"},
       {:membrane_audio_mix_plugin, "~> 0.16.0"},
       {:membrane_aac_fdk_plugin, "~> 0.18.0"},
       # {:sippet, "1.0.8"},
