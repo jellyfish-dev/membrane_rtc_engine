@@ -70,6 +70,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
       # {:membrane_g711_ffmpeg_plugin, "~> 0.1.1"},
       {:membrane_g711_ffmpeg_plugin,
        github: "jellyfish-dev/membrane_g711_ffmpeg_plugin", branch: "fix/old-channel-layout-api"},
+      # TODO: delete me
+      {:membrane_precompiled_dependency_provider, github: "membraneframework/membrane_precompiled_dependency_provider", branch: "hotfix/bump-ffmpeg-to-6.1", override: true},
       {:membrane_rtp_g711_plugin, "~> 0.2.0"},
       {:membrane_opus_plugin, "~> 0.19.0"},
       {:membrane_ffmpeg_swresample_plugin, "~> 0.19.1"},
