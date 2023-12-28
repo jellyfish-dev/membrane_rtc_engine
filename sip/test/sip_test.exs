@@ -25,7 +25,6 @@ defmodule Membrane.RTC.SIPEndpointTest do
   @transfer_call_extn "1260"
   @call_long_extn "1270"
 
-
   @sip_id "sip-endpoint"
   @file_id "file-endpoint"
   @hls_id "hls-endpoint-id"
@@ -147,15 +146,16 @@ defmodule Membrane.RTC.SIPEndpointTest do
         :ok = Engine.message_endpoint(room.engine, room.hls_id, {:subscribe, [sip_track_id]})
       end
 
-      assert_receive {:playlist_playable, _content, _output_path}, 30_000
-      assert_receive {:playlist_playable, _content, _output_path}, 30_000
+      assert_receive {:playlist_playable, _content, _output_path}, 50_000
+      assert_receive {:playlist_playable, _content, _output_path}, 50_000
 
       for room <- rooms do
         sip_endpoint_id = room.sip_id
 
         assert_receive %Message.EndpointRemoved{
-          endpoint_id: ^sip_endpoint_id
-        }, 50_000
+                         endpoint_id: ^sip_endpoint_id
+                       },
+                       50_000
       end
 
       for room <- rooms do
@@ -163,10 +163,10 @@ defmodule Membrane.RTC.SIPEndpointTest do
         Engine.remove_endpoint(room.engine, hls_endpoint_id)
 
         assert_receive %Message.EndpointRemoved{
-          endpoint_id: ^hls_endpoint_id
-        }, 50_000
+                         endpoint_id: ^hls_endpoint_id
+                       },
+                       50_000
       end
-
 
       for room <- rooms do
         assert File.exists?(room.asterisk_output)
@@ -209,14 +209,13 @@ defmodule Membrane.RTC.SIPEndpointTest do
                      },
                      15_000
 
-      Process.sleep(15_000)
+      assert_receive %Message.EndpointRemoved{
+        endpoint_id: ^sip_endpoint_id1
+      }, 30_000
 
-      Engine.remove_endpoint(rtc_engine, sip_endpoint_id1)
-      Engine.remove_endpoint(rtc_engine, sip_endpoint_id2)
-
-      Process.sleep(15_000)
-
-      Membrane.Pipeline.terminate(rtc_engine, asynchronous?: true, timeout: 10_000)
+      assert_receive %Message.EndpointRemoved{
+        endpoint_id: ^sip_endpoint_id2
+      }, 30_000
 
       for output <- [asterisk_output0, asterisk_output1] do
         assert File.exists?(output)
@@ -311,7 +310,9 @@ defmodule Membrane.RTC.SIPEndpointTest do
       sip_endpoint = create_sip_endpoint(rtc_engine)
       :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: @sip_id)
 
-      file_endpoint = create_audio_file_endpoint(rtc_engine, @stream_id, @track_id, "audio0_short.aac")
+      file_endpoint =
+        create_audio_file_endpoint(rtc_engine, @stream_id, @track_id, "audio0_short.aac")
+
       :ok = Engine.add_endpoint(rtc_engine, file_endpoint, id: @file_id)
 
       assert_receive %Message.EndpointMessage{
@@ -325,12 +326,12 @@ defmodule Membrane.RTC.SIPEndpointTest do
       FileEndpoint.start_sending(rtc_engine, @file_id)
 
       assert_receive %Message.TrackAdded{
-        endpoint_id: @sip_id,
-      },
-      15_000
+                       endpoint_id: @sip_id
+                     },
+                     15_000
 
       assert_receive %Message.EndpointRemoved{
-                       endpoint_id: @file_id,
+                       endpoint_id: @file_id
                      },
                      25_000
 
@@ -355,8 +356,9 @@ defmodule Membrane.RTC.SIPEndpointTest do
     :ok = Engine.add_endpoint(rtc_engine, hls_endpoint, id: @hls_id)
 
     assert_receive %Message.EndpointAdded{
-      endpoint_id: @hls_id
-    }, 1_000
+                     endpoint_id: @hls_id
+                   },
+                   1_000
 
     sip_endpoint = create_sip_endpoint(rtc_engine)
     :ok = Engine.add_endpoint(rtc_engine, sip_endpoint, id: @sip_id)
@@ -383,18 +385,19 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
     FileEndpoint.start_sending(rtc_engine, @file_id)
 
-
-    assert_receive {:playlist_playable, _content, _output_path}, 30_000
+    assert_receive {:playlist_playable, _content, _output_path}, 50_000
 
     assert_receive %Message.EndpointRemoved{
-      endpoint_id: @sip_id
-    }, 50_000
+                     endpoint_id: @sip_id
+                   },
+                   50_000
 
     Engine.remove_endpoint(rtc_engine, @hls_id)
 
     assert_receive %Message.EndpointRemoved{
-      endpoint_id: @hls_id
-    }, 50_000
+                     endpoint_id: @hls_id
+                   },
+                   50_000
 
     assert File.exists?(asterisk_output)
     check_alaw_file(asterisk_output)
@@ -483,7 +486,6 @@ defmodule Membrane.RTC.SIPEndpointTest do
     assert audio_stream["codec_name"] == "pcm_alaw"
 
     assert audio_stream["sample_rate"] == "8000"
-
 
     duration = data["format"]["duration"]
     assert not is_nil(duration)

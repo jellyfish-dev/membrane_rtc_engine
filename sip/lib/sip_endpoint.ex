@@ -246,6 +246,16 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
+  def handle_playing(ctx, state) do
+    state =
+      if state.phone_number != nil,
+        do: try_calling(state, ctx.playback, state.phone_number),
+        else: state
+
+    {[], state}
+  end
+
+  @impl true
   def handle_pad_added(Pad.ref(:input, track_id) = pad, _ctx, state) do
     track = Map.get(state.incoming_tracks, track_id)
 
@@ -319,19 +329,13 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     children_to_remove =
       [:track_receiver, :depayloader, :opus_decoder] |> Enum.map(&{&1, track_id})
 
-    actions =[remove_children: children_to_remove]
+    actions = [remove_children: children_to_remove]
 
     if map_size(state.incoming_tracks) == 0 do
-
-
       {actions ++ [notify_parent: :finished], state}
     else
       {actions, state}
-
     end
-
-
-
   end
 
   @impl true
@@ -340,7 +344,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
-  def handle_parent_notification({:dial, phone_number}, _ctx, state) do
+  def handle_parent_notification({:dial, phone_number}, ctx, state) do
     # Strip whitespace and separator characters
     phone_number = String.replace(phone_number, ~r/[-.() \t\r\n]+/, "")
 
@@ -348,22 +352,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       raise "Invalid phone number: #{inspect(phone_number)}. Only digits and `+` are allowed in number"
     end
 
-    state =
-      case state.endpoint_state do
-        :unregistered ->
-          Logger.info("SIP Endpoint: Postponing call until registered")
-          %{state | phone_number: phone_number, endpoint_state: :unregistered_call_pending}
-
-        :registered ->
-          Logger.info("SIP Endpoint: Calling #{inspect(phone_number)}...")
-          state = %{state | phone_number: phone_number}
-          {call_id, _pid} = spawn_call(state)
-          %{state | call_id: call_id, endpoint_state: :calling}
-
-        _other ->
-          Logger.warning("SIP Endpoint: Already calling, or endpoint is terminating")
-          state
-      end
+    state = try_calling(state, ctx.playback, phone_number)
 
     {[], state}
   end
@@ -680,6 +669,28 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     Call.stop(state.register_call_id)
 
     {[terminate: :normal], %{state | endpoint_state: :terminating}}
+  end
+
+  defp try_calling(state, playback_state, phone_number) do
+    case state.endpoint_state do
+      _any when playback_state != :playing ->
+        Logger.info("SIP Endpoint: Postponing call until in state playing")
+        %{state | phone_number: phone_number}
+
+      :unregistered ->
+        Logger.info("SIP Endpoint: Postponing call until registered")
+        %{state | phone_number: phone_number, endpoint_state: :unregistered_call_pending}
+
+      :registered ->
+        Logger.info("SIP Endpoint: Calling #{inspect(phone_number)}...")
+        state = %{state | phone_number: phone_number}
+        {call_id, _pid} = spawn_call(state)
+        %{state | call_id: call_id, endpoint_state: :calling}
+
+      _other ->
+        Logger.warning("SIP Endpoint: Already calling, or endpoint is terminating")
+        state
+    end
   end
 
   defp spawn_call(state, module \\ OutgoingCall) do
