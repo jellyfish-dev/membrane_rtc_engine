@@ -41,7 +41,7 @@ defmodule Membrane.RTC.SIPEndpointTest do
     Engine.register(pid, self())
 
     on_exit(fn ->
-      Membrane.Pipeline.terminate(pid)
+      :ok = Membrane.Pipeline.terminate(pid, force?: true)
     end)
 
     [rtc_engine: pid]
@@ -143,6 +143,12 @@ defmodule Membrane.RTC.SIPEndpointTest do
                        },
                        15_000
 
+        assert_receive %Message.EndpointMessage{
+                         endpoint_id: ^sip_endpoint_id,
+                         message: :received_rtp_stream
+                       },
+                       15_000
+
         :ok = Engine.message_endpoint(room.engine, room.hls_id, {:subscribe, [sip_track_id]})
       end
 
@@ -197,25 +203,27 @@ defmodule Membrane.RTC.SIPEndpointTest do
       SIP.dial(rtc_engine, sip_endpoint_id1, @call_sound0_extn2)
       SIP.dial(rtc_engine, sip_endpoint_id2, @call_sound1_extn1)
 
-      assert_receive %Message.TrackAdded{
+      assert_receive %Message.EndpointMessage{
                        endpoint_id: ^sip_endpoint_id1,
-                       track_id: _sip_track_id
+                       message: :received_rtp_stream
                      },
                      15_000
 
-      assert_receive %Message.TrackAdded{
+      assert_receive %Message.EndpointMessage{
                        endpoint_id: ^sip_endpoint_id2,
-                       track_id: _sip_track_id
+                       message: :received_rtp_stream
                      },
                      15_000
 
       assert_receive %Message.EndpointRemoved{
-        endpoint_id: ^sip_endpoint_id1
-      }, 30_000
+                       endpoint_id: ^sip_endpoint_id1
+                     },
+                     30_000
 
       assert_receive %Message.EndpointRemoved{
-        endpoint_id: ^sip_endpoint_id2
-      }, 30_000
+                       endpoint_id: ^sip_endpoint_id2
+                     },
+                     30_000
 
       for output <- [asterisk_output0, asterisk_output1] do
         assert File.exists?(output)
@@ -325,8 +333,9 @@ defmodule Membrane.RTC.SIPEndpointTest do
 
       FileEndpoint.start_sending(rtc_engine, @file_id)
 
-      assert_receive %Message.TrackAdded{
-                       endpoint_id: @sip_id
+      assert_receive %Message.EndpointMessage{
+                       endpoint_id: @sip_id,
+                       message: :received_rtp_stream
                      },
                      15_000
 
@@ -378,6 +387,12 @@ defmodule Membrane.RTC.SIPEndpointTest do
     assert_receive %Message.TrackAdded{
                      endpoint_id: @sip_id,
                      track_id: sip_track_id
+                   },
+                   15_000
+
+    assert_receive %Message.EndpointMessage{
+                     endpoint_id: @sip_id,
+                     message: :received_rtp_stream
                    },
                    15_000
 

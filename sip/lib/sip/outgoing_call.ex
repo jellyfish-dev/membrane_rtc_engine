@@ -63,7 +63,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
         _state = build_and_send_request(:bye, state)
 
         # Give Sippet time to send the request (this is async)
-        Process.sleep(50)
+        Process.sleep(250)
 
         raise "SIP Client: Received SDP answer is not matching our requirements: #{inspect(reason)}"
     end
@@ -122,7 +122,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
     respond(request, 200)
 
     # Give Sippet time to respond to the BYE (this is async)
-    Process.sleep(50)
+    Process.sleep(250)
 
     notify_endpoint(state.endpoint, {:end, hangup_cause(request)})
     state
@@ -135,7 +135,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
     state = build_and_send_request(:cancel, state)
 
     # Give Sippet time to send the request (this is async)
-    Process.sleep(50)
+    Process.sleep(250)
 
     notify_endpoint(state.endpoint, {:end, :cancelled})
 
@@ -147,7 +147,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.OutgoingCall do
     state = build_and_send_request(:bye, state)
 
     # Give Sippet time to send the request (this is async)
-    Process.sleep(50)
+    Process.sleep(250)
 
     notify_endpoint(state.endpoint, {:end, :user_hangup})
 

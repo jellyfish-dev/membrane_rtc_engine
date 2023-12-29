@@ -838,7 +838,7 @@ defmodule Membrane.RTC.Engine do
         &Map.merge(&1, id_to_track)
       )
 
-    tracks_msgs = build_track_removed_actions(tracks, endpoint_id, state)
+    tracks_msgs = build_track_removed_actions(tracks, endpoint_id, ctx, state)
     track_ids = Enum.map(tracks, & &1.id)
     track_tees = tracks |> Enum.map(&get_track_tee(&1.id, ctx)) |> Enum.reject(&is_nil(&1))
 
@@ -950,7 +950,7 @@ defmodule Membrane.RTC.Engine do
         state = update_in(state, [:pending_subscriptions], pending_subscriptions_fun)
 
         tracks = Enum.map(Endpoint.get_tracks(endpoint), &%Track{&1 | active?: true})
-        tracks_msgs = build_track_removed_actions(tracks, endpoint_id, state)
+        tracks_msgs = build_track_removed_actions(tracks, endpoint_id, ctx, state)
         endpoint_bin = ctx.children[{:endpoint, endpoint_id}]
 
         endpoint_removed_msgs =
@@ -1022,10 +1022,13 @@ defmodule Membrane.RTC.Engine do
     end)
   end
 
-  defp build_track_removed_actions(tracks, from_endpoint_id, state) do
+  defp build_track_removed_actions(tracks, from_endpoint_id, ctx, state) do
     state.endpoints
     |> Stream.reject(&(elem(&1, 0) == from_endpoint_id))
     |> Stream.reject(&is_nil(elem(&1, 1)))
+    |> Enum.filter(fn {endpoint_id, _endpoint} ->
+      Map.has_key?(ctx.children, {:endpoint, endpoint_id})
+    end)
     |> Enum.flat_map(fn {endpoint_id, _endpoint} ->
       subscriptions = state.subscriptions[endpoint_id]
       tracks = Enum.filter(tracks, &Map.has_key?(subscriptions, &1.id))

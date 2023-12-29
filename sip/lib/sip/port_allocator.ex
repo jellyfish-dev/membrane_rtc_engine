@@ -3,6 +3,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
 
   use GenServer
 
+  require Logger
+
   @default_port_range {21_000, 21_100}
 
   @spec start_link(term()) :: GenServer.on_start()
@@ -33,19 +35,25 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.PortAllocator do
   end
 
   @impl true
-  def handle_call(:get_port, {pid, _tag}, state) do
+  def handle_call(:get_port, {pid, tag}, state) do
     {port, available} = List.pop_at(state.available, 0)
 
-    if is_nil(port) do
-      {:reply, {:error, :no_available_port}, state}
-    else
-      state = %{
-        state
-        | available: available,
-          in_use: Map.update(state.in_use, pid, [port], &[port | &1])
-      }
+    state = %{state | available: available}
+
+    with false <- is_nil(port),
+         {:ok, socket} <- :gen_udp.open(port),
+         :ok <- :gen_udp.close(socket) do
+      state = %{state | in_use: Map.update(state.in_use, pid, [port], &[port | &1])}
 
       {:reply, {:ok, port}, state}
+    else
+      true ->
+        {:reply, {:error, :no_available_port}, state}
+
+      {:error, reason} ->
+        Logger.warning("Opening port #{port} failed with reason: #{reason}")
+
+        handle_call(:get_port, {pid, tag}, state)
     end
   end
 

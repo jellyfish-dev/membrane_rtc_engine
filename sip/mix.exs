@@ -68,10 +68,10 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
       {:membrane_raw_audio_parser_plugin, "~> 0.4.0"},
       {:membrane_g711_format, "~> 0.1.0"},
       # {:membrane_g711_ffmpeg_plugin, "~> 0.1.1"},
-      {:membrane_g711_ffmpeg_plugin,
-       github: "jellyfish-dev/membrane_g711_ffmpeg_plugin", branch: "fix/old-channel-layout-api"},
+      {:membrane_g711_ffmpeg_plugin, github: "jellyfish-dev/membrane_g711_ffmpeg_plugin"},
       # TODO: delete me
-      {:membrane_precompiled_dependency_provider, github: "membraneframework/membrane_precompiled_dependency_provider", branch: "hotfix/bump-ffmpeg-to-6.1", override: true},
+      {:membrane_precompiled_dependency_provider,
+       github: "membraneframework/membrane_precompiled_dependency_provider", override: true},
       {:membrane_rtp_g711_plugin, "~> 0.2.0"},
       {:membrane_opus_plugin, "~> 0.19.0"},
       {:membrane_ffmpeg_swresample_plugin, "~> 0.19.1"},
@@ -93,6 +93,9 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP.MixProject do
     [
       "test.ci": [
         "cmd docker compose -f docker-compose-test.yaml --env-file .env up --remove-orphans test --exit-code-from test"
+      ],
+      "test.ci.clean": [
+        "cmd docker compose -f docker-compose-test.yaml down"
       ]
     ]
   end

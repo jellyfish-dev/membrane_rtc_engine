@@ -267,7 +267,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       })
       |> child({:depayloader, track.id}, Track.get_depayloader(track))
       |> child({:opus_decoder, track.id}, Membrane.Opus.Decoder)
-      |> via_in(Pad.ref(:input, {:extra, track.id}))
+      |> via_in(Pad.ref(:input, track.id))
       |> get_child(:audio_mixer)
     ]
 
@@ -454,7 +454,8 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     {[
        notify_child: {:audio_mixer, {:start_mixing, @audio_mixer_delay}},
        notify_parent:
-         {:track_ready, state.outgoing_track.id, :high, state.outgoing_track.encoding}
+         {:track_ready, state.outgoing_track.id, :high, state.outgoing_track.encoding},
+       notify_parent: {:forward_to_parent, :received_rtp_stream}
      ], state}
   end
 
@@ -652,11 +653,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     case state.endpoint_state do
       :calling ->
         OutgoingCall.cancel(state.call_id)
-        Process.sleep(50)
+        Process.sleep(250)
 
       :in_call ->
         OutgoingCall.bye(state.call_id)
-        Process.sleep(50)
+        Process.sleep(250)
 
       _other ->
         nil

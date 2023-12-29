@@ -9,4 +9,4 @@ sed 's#\$EXTERNAL_IP#'"$EXTERNAL_IP"'#g' /etc/asterisk/sip.tmp.conf > /etc/aster
 
 
 # Start Asterisk
-exec asterisk -fvvvvvv
+exec asterisk -fvvvvvvvv
