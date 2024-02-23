@@ -34,14 +34,11 @@ defmodule VideoRoom.MixProject do
 
       # rtc engine dependencies
       {:membrane_rtc_engine,
-       github: "jellyfish-dev/membrane_rtc_engine",
-       sparse: "engine",
-       ref: "91499e6958c9243f535d9e7486ae46915f492372",
-       override: true},
+       github: "jellyfish-dev/membrane_rtc_engine", sparse: "engine", override: true},
       {:membrane_rtc_engine_webrtc,
-       github: "jellyfish-dev/membrane_rtc_engine",
-       sparse: "webrtc",
-       ref: "91499e6958c9243f535d9e7486ae46915f492372"}
+       github: "jellyfish-dev/membrane_rtc_engine", sparse: "webrtc", override: true},
+      {:membrane_rtc_engine_file,
+       github: "jellyfish-dev/membrane_rtc_engine", sparse: "file", override: true}
     ]
   end
 

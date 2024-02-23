@@ -6,8 +6,10 @@ defmodule Videoroom.Room do
   require Membrane.Logger
 
   alias Membrane.RTC.Engine
+  alias Membrane.RTC.Engine.Endpoint
   alias Membrane.RTC.Engine.Endpoint.WebRTC
   alias Membrane.RTC.Engine.Message.EndpointMessage
+  alias Membrane.RTC.Engine.Message.TrackAdded
 
   @mix_env Mix.env()
 
@@ -74,6 +76,24 @@ defmodule Videoroom.Room do
   end
 
   @impl true
+  def handle_info(%TrackAdded{endpoint_id: _i, endpoint_type: WebRTC}, state) do
+    file_endpoint = create_file_endpoint(state.rtc_engine)
+
+    :ok = Engine.add_endpoint(state.rtc_engine, file_endpoint, id: :file_endpoint)
+
+    # Process.send_after(self(), :start_file, 2_500)
+
+    {:noreply, state}
+  end
+
+  # @impl true
+  # def handle_info(:start_file, state) do
+  #   Endpoint.File.start_sending(state.rtc_engine, :file_endpoint)
+
+  #   {:noreply, state}
+  # end
+
+  @impl true
   def handle_info({:media_event, from, event}, state) do
     Engine.message_endpoint(state.rtc_engine, from, {:media_event, event})
     {:noreply, state}
@@ -127,6 +147,26 @@ defmodule Videoroom.Room do
       integrated_turn_options: network_options[:integrated_turn_options],
       handshake_opts: handshake_opts,
       log_metadata: [peer_id: peer_id]
+    }
+  end
+
+  defp create_file_endpoint(rtc_engine) do
+    video_track_config = %Endpoint.File.TrackConfig{
+      type: :video,
+      encoding: :H264,
+      clock_rate: 90_000,
+      fmtp: %ExSDP.Attribute.FMTP{
+        pt: 96
+      },
+      opts: [framerate: {25, 1}]
+    }
+
+    %Endpoint.File{
+      rtc_engine: rtc_engine,
+      file_path: "./test/fixtures/video_baseline.h264",
+      track_config: video_track_config,
+      payload_type: 96
+      # playback_mode: :manual
     }
   end
 end

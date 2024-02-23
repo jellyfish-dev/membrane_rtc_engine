@@ -49,9 +49,9 @@ export class Room {
     this.webrtc.on("sendMediaEvent", (mediaEvent: string) => {
       this.webrtcChannel.push("mediaEvent", { data: mediaEvent });
     })
-    
+
     this.webrtc.on("connectionError", setErrorMessage);
-    
+
     this.webrtc.on("connected", (endpointId: string, otherEndpoints: Endpoint[]) => {
       this.localStream!.getTracks().forEach((track) =>
         this.webrtc.addTrack(track, this.localStream!, {})
@@ -59,7 +59,7 @@ export class Room {
 
       this.endpoints = otherEndpoints;
       this.endpoints.forEach((endpoint) => {
-        addVideoElement(endpoint.id, endpoint.metadata.displayName, false);
+        addVideoElement(endpoint.id, endpoint.metadata?.displayName || "File video", false);
       });
       this.updateParticipantsList();
     });
@@ -68,19 +68,19 @@ export class Room {
     this.webrtc.on("trackReady", (ctx: TrackContext) => {
       attachStream(ctx.stream!, ctx.endpoint.id)
     });
-    
+
     this.webrtc.on("endpointAdded", (endpoint: Endpoint) => {
       this.endpoints.push(endpoint);
       this.updateParticipantsList();
-      addVideoElement(endpoint.id, endpoint.metadata.display_name, false);
+      addVideoElement(endpoint.id, endpoint.metadata?.display_name || "File video", false);
     });
-    
+
     this.webrtc.on("endpointRemoved", (endpoint: Endpoint) => {
       this.endpoints = this.endpoints.filter((endpoint) => endpoint.id !== endpoint.id);
       removeVideoElement(endpoint.id);
       this.updateParticipantsList();
     });
-    
+
     this.webrtcChannel.on("mediaEvent", (event: any) =>
       this.webrtc.receiveMediaEvent(event.data)
     );
@@ -141,7 +141,7 @@ export class Room {
   };
 
   private updateParticipantsList = (): void => {
-    const participantsNames = this.endpoints.map((e) => e.metadata.displayName);
+    const participantsNames = this.endpoints.map((e) => e.metadata?.displayName || "File video");
 
     if (this.displayName) {
       participantsNames.push(this.displayName);
