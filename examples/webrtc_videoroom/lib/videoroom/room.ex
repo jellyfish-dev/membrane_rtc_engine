@@ -158,12 +158,12 @@ defmodule Videoroom.Room do
       fmtp: %ExSDP.Attribute.FMTP{
         pt: 96
       },
-      opts: [framerate: {25, 1}]
+      opts: [framerate: {30, 1}]
     }
 
-    %Endpoint.File{
+    %Endpoint.FileMPEG{
       rtc_engine: rtc_engine,
-      file_path: "./test/fixtures/video_baseline.h264",
+      file_path: "./test/fixtures/video_baseline.ts",
       track_config: video_track_config,
       payload_type: 96
       # playback_mode: :manual

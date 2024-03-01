@@ -21,6 +21,11 @@ defmodule VideoRoom.MixProject do
 
   defp deps do
     [
+      {:membrane_core,
+       github: "membraneframework/membrane_core",
+       ref: "168f57e12bf3280cda82b1116796151d4b1cb486",
+       override: true},
+      # {:membrane_core, "1.0.1", override: true},
       {:plug_cowboy, "~> 2.0"},
       {:phoenix, "~> 1.6"},
       {:phoenix_html, "~> 3.0"},
@@ -38,7 +43,10 @@ defmodule VideoRoom.MixProject do
       {:membrane_rtc_engine_webrtc,
        github: "jellyfish-dev/membrane_rtc_engine", sparse: "webrtc", override: true},
       {:membrane_rtc_engine_file,
-       github: "jellyfish-dev/membrane_rtc_engine", sparse: "file", override: true}
+       github: "jellyfish-dev/membrane_rtc_engine", sparse: "file", override: true},
+
+      #  MPEG-TS Plugin
+      {:membrane_mpeg_ts_plugin, github: "kim-company/membrane_mpeg_ts_plugin"}
     ]
   end
 
