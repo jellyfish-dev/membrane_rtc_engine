@@ -227,5 +227,5 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
 
   defp calculate_offset(state), do: {System.monotonic_time() - state.start_timestamp, state}
 
-  defp filename(track), do: "#{track.type}_#{track.id}.msr"
+  defp filename(track), do: "#{track.type}_#{String.replace(track.id, ":", "_")}.msr"
 end
