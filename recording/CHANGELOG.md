@@ -8,3 +8,4 @@
 * Update deps [#374](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/374)
 * Extend report created by RecordingEndpoint [#376](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/376)
 * Add cleanup function and metrics to s3 sink [#378](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/378)
+* Add recovery mechanism to s3 sink [#380](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/380)
