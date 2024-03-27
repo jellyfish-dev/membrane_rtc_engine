@@ -187,9 +187,7 @@ defmodule Membrane.RTC.RecordingEndpointTest do
 
     Engine.remove_endpoint(rtc_engine, recording_endpoint_id)
     assert_receive %EndpointRemoved{endpoint_id: ^recording_endpoint_id}
-
-    report_file_path = Path.join(output_dir, @report_filename)
-    await_report(report_file_path)
+    refute_receive %EndpointCrashed{endpoint_id: ^recording_endpoint_id}, 1_000
   end
 
   @tag :tmp_dir
