@@ -1222,7 +1222,11 @@ defmodule Membrane.RTC.Engine do
     # checks whether subscription is correct
     track = get_track(subscription.track_id, state.endpoints)
 
-    if track, do: :ok, else: {:error, :invalid_track_id}
+    cond do
+      is_nil(track) -> {:error, :invalid_track_id}
+      not Map.has_key?(state.endpoints, subscription.endpoint_id) -> {:error, :endpoint_removed}
+      true -> :ok
+    end
   end
 
   defp fulfill_or_postpone_subscription(subscription, ctx, state) do
