@@ -2,6 +2,7 @@
 
 ## 0.8.0-dev
 * Update deps [#374](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/374)
+* Update the use of Engine.subscribe [#381](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/381)
 
 ## 0.7.0
 * Rename the function `is_keyframe` to `keyframe?` and `is_deficient?` to `deficient?` in order to be compliant with elixir style guide. [#349](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/349)

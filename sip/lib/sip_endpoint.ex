@@ -350,12 +350,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
           :ok ->
             put_in(state, [:incoming_tracks, track.id], track)
 
-          {:error, :invalid_track_id} ->
-            Logger.info("""
-            Couldn't subscribe to the track: #{inspect(track.id)}. No such track.
-            It had to be removed just after publishing it. Ignoring.
-            """)
-
+          :ignored ->
             state
 
           {:error, reason} ->
