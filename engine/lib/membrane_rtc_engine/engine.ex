@@ -394,15 +394,32 @@ defmodule Membrane.RTC.Engine do
           endpoint_id :: String.t(),
           track_id :: Track.id(),
           opts :: subscription_opts_t
-        ) :: :ok | {:error, :timeout | :invalid_track_id}
+        ) :: :ok | {:error, :timeout | :endpoint_not_exist} | :ignored
   def subscribe(rtc_engine, endpoint_id, track_id, opts \\ []) do
     ref = make_ref()
 
     send(rtc_engine, {:subscribe, {self(), ref}, endpoint_id, track_id, opts})
 
     receive do
-      {^ref, :ok} -> :ok
-      {^ref, {:error, reason}} -> {:error, reason}
+      {^ref, :ok} ->
+        :ok
+
+      {^ref, {:error, :invalid_track_id}} ->
+        Membrane.Logger.debug("""
+        Couldn't subscribe to the track: #{track_id} (no such track). Ignoring.
+        """)
+
+        :ignored
+
+      {^ref, {:error, :endpoint_removed}} ->
+        Membrane.Logger.debug("""
+        Couldn't subscribe to the track: #{track_id} because endpoint #{endpoint_id} is already removed. Ignoring.
+        """)
+
+        :ignored
+
+      {^ref, {:error, reason}} ->
+        {:error, reason}
     after
       5_000 -> {:error, :timeout}
     end
@@ -497,7 +514,7 @@ defmodule Membrane.RTC.Engine do
       opts: opts
     }
 
-    case validate_subscription(subscription, state) do
+    case validate_subscription(subscription, ctx, state) do
       :ok ->
         {spec, state} = fulfill_or_postpone_subscription(subscription, ctx, state)
         send(endpoint_pid, {ref, :ok})
@@ -1195,7 +1212,7 @@ defmodule Membrane.RTC.Engine do
   #
   # Track Subscriptions
   #
-  # - validate_subscription/2: Validates proposed subscription, called when a new subscription
+  # - validate_subscription/3: Validates proposed subscription, called when a new subscription
   #   is to be added, via handle_info.
   #
   # - fulfill_or_postpone_subscription/3: Called immediately upon validation of subscription,
@@ -1218,13 +1235,19 @@ defmodule Membrane.RTC.Engine do
   #   owned by one of the Endpoints in the list.
   #
 
-  defp validate_subscription(subscription, state) do
+  defp validate_subscription(subscription, ctx, state) do
     # checks whether subscription is correct
     track = get_track(subscription.track_id, state.endpoints)
 
+    endpoint_id = {:endpoint, subscription.endpoint_id}
+
+    endpoint = find_child(ctx, pattern: ^endpoint_id)
+    endpoint_in_state? = Map.has_key?(state.endpoints, subscription.endpoint_id)
+
     cond do
       is_nil(track) -> {:error, :invalid_track_id}
-      not Map.has_key?(state.endpoints, subscription.endpoint_id) -> {:error, :endpoint_removed}
+      not endpoint_in_state? and is_nil(endpoint) -> {:error, :endpoint_not_exist}
+      not endpoint_in_state? -> {:error, :endpoint_removed}
       true -> :ok
     end
   end

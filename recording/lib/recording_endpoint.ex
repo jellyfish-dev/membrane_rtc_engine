@@ -72,11 +72,7 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
           :ok ->
             true
 
-          {:error, :invalid_track_id} ->
-            Membrane.Logger.debug("""
-            Couldn't subscribe to the track: #{track.id} (no such track). Ignoring.
-            """)
-
+          :ignored ->
             false
 
           {:error, reason} ->

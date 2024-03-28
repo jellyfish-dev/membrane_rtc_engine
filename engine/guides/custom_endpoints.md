@@ -246,12 +246,7 @@ defmodule RecordingEndpoint do
         :ok ->
           {:cont, {[], update_in(state, [:tracks], &Map.put(&1, track.id, track))}}
 
-        {:error, :invalid_track_id} ->
-          Membrane.Logger.warn("""
-          Couldn't subscribe to the track: #{inspect(track.id)}. No such track.
-          It had to be removed just after publishing it. Ignoring.
-          """)
-
+        :ignored ->
           {:cont, {[], state}}
 
         {:error, reason} ->
