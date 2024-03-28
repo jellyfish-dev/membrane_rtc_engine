@@ -3,8 +3,6 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
   An Endpoint responsible for saving incoming tracks to pointed storages.
   """
 
-  # Handle when recording is already added
-
   use Membrane.Bin
 
   require Membrane.Logger
