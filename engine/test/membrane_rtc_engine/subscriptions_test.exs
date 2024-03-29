@@ -1,8 +1,8 @@
 defmodule Membrane.RTC.SubscriptionsTest do
   use ExUnit.Case
 
-  alias Membrane.RTC.Engine.Track
   alias Membrane.RTC.Engine.Subscriptions.State
+  alias Membrane.RTC.Engine.Track
 
   defmodule MockEngine do
     use GenServer

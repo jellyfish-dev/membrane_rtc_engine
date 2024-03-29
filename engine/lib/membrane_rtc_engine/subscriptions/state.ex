@@ -1,13 +1,15 @@
 defmodule Membrane.RTC.Engine.Subscriptions.State do
   @moduledoc false
 
+  @behaviour __MODULE__
+
+  use Bunch.Access
+
   require Membrane.Logger
 
   alias Membrane.RTC.Engine
   alias Membrane.RTC.Engine.Track
   alias Membrane.RTC.Engine.Subscriptions.{Automatic, Manual}
-
-  @behaviour __MODULE__
 
   @type tracks_t :: %{Track.id() => Track.t()}
 
@@ -68,7 +70,7 @@ defmodule Membrane.RTC.Engine.Subscriptions.State do
       end)
 
     unless Enum.empty?(invalid_tracks) do
-      msg = invalid_tracks |> Enum.map(& &1.id) |> Enum.join("")
+      msg = invalid_tracks |> Enum.map_join(" ", & &1.id)
       Membrane.Logger.debug("Invalid tracks are: #{msg}")
     end
 
@@ -87,7 +89,7 @@ defmodule Membrane.RTC.Engine.Subscriptions.State do
     Map.update!(state, :endpoints, &MapSet.union(&1, endpoints))
   end
 
-  @spec pop_track!(t(), Track.id()) :: {Track.id(), t()}
+  @spec pop_track!(t(), Track.id()) :: {Track.t(), t()}
   def pop_track!(state, track_id) do
     {removed_track, tracks} = Map.pop!(state.tracks, track_id)
 

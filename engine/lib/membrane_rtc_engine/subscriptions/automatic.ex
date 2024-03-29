@@ -2,10 +2,11 @@ defmodule Membrane.RTC.Engine.Subscriptions.Automatic do
   @moduledoc false
   # Module representing subscription for track
 
-  require Membrane.Logger
-  alias Membrane.RTC.Engine.Subscriptions.State
-
   @behaviour State
+
+  require Membrane.Logger
+
+  alias Membrane.RTC.Engine.Subscriptions.State
 
   @impl true
   def handle_new_tracks(tracks, subscriptions_state) do
