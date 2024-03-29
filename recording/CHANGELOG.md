@@ -9,3 +9,4 @@
 * Extend report created by RecordingEndpoint [#376](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/376)
 * Add cleanup function and metrics to s3 sink [#378](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/378)
 * Save report only when it contains any track [#379](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/379)
+* Use engine manual and auto subscribe mode. [#383](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/383)

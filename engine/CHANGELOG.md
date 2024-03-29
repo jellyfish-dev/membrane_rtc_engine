@@ -4,6 +4,7 @@
 * Update deps [#374](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/374)
 * Fix READMEs [#365](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/365)
 * Send reason when endpoint crashes. [#368](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/368)
+* Add manual and auto subscribe mode. [#383](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/383)
 
 ## 0.21.0
 * Rename the function `is_simulcast` to `simulcast?` in order to be compliant with elixir style guide. [#349](https://github.com/jellyfish-dev/membrane_rtc_engine/pull/349)
