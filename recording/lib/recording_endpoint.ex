@@ -10,6 +10,7 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
   alias Membrane.RTC.Engine
   alias Membrane.RTC.Engine.Endpoint.Recording.{EdgeTimestampSaver, Reporter}
   alias Membrane.RTC.Engine.Endpoint.WebRTC.TrackReceiver
+  alias Membrane.RTC.Engine.Subscriptions
 
   @type storage_opts :: any()
 
@@ -40,10 +41,46 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
                 description: """
                 Recording id that will be saved along with report
                 """
+              ],
+              subscribe_mode: [
+                spec: :auto | :manual,
+                default: :auto,
+                description: """
+                Whether tracks should be subscribed automatically when they're ready.
+                If set to `:manual` hls endpoint will subscribe only to tracks from endpoints send using message:
+                `{:subscribe, endpoints}`
+                """
               ]
+
+  @doc """
+  Subscribe hls endpoint to tracks from endpoints.
+
+  It is only valid to use when hls has `subscribe_mode` set to :manual.
+  """
+  @spec subscribe(engine :: pid(), endpoint_id :: any(), endpoints :: [any()]) :: :ok
+  def subscribe(engine, endpoint_id, endpoints) do
+    Engine.message_endpoint(engine, endpoint_id, {:subscribe, endpoints})
+  end
+
+  @impl true
+  def handle_init(_context, options) when options.subscribe_mode not in [:auto, :manual] do
+    raise("""
+    Cannot initialize Recording endpoint.
+    Invalid value for `:subscribe_mode`: #{options.subscribe_mode}.
+    Please set `:subscribe_mode` to either `:auto` or `:manual`.
+    """)
+  end
 
   @impl true
   def handle_init(ctx, options) do
+    {:endpoint, endpoint_id} = ctx.name
+
+    subscriptions_state = %Subscriptions.State{
+      subscribe_mode: options.subscribe_mode,
+      endpoint_id: endpoint_id,
+      rtc_engine: options.rtc_engine
+    }
+
     {:ok, reporter} = Reporter.start(options.recording_id)
 
     Membrane.ResourceGuard.register(ctx.resource_guard, fn ->
@@ -56,46 +93,28 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
       |> Map.merge(%{
         tracks: %{},
         start_timestamp: nil,
-        reporter: reporter
+        reporter: reporter,
+        subscriptions_state: subscriptions_state
       })
 
     {[notify_parent: :ready], state}
   end
 
   @impl true
-  def handle_parent_notification({:new_tracks, tracks}, ctx, state) do
-    {:endpoint, endpoint_id} = ctx.name
+  def handle_parent_notification({:new_tracks, tracks}, _ctx, state) do
+    subscriptions_state = Subscriptions.State.handle_new_tracks(tracks, state.subscriptions_state)
 
-    {valid_tracks, _invalid_tracks} =
-      Enum.split_with(tracks, fn track ->
-        case Engine.subscribe(state.rtc_engine, endpoint_id, track.id) do
-          :ok ->
-            true
+    {[], %{state | subscriptions_state: subscriptions_state}}
+  end
 
-          {:error, :invalid_track_id} ->
-            Membrane.Logger.debug("""
-            Couldn't subscribe to the track: #{track.id} (no such track). Ignoring.
-            """)
-
-            false
-
-          {:error, reason} ->
-            reason = inspect(reason)
-
-            Membrane.Logger.error(%{
-              error: reason,
-              message: "Couldn't subscribe to track",
-              track: track
-            })
-
-            raise "Subscription to track #{track.id} failed with reason: `#{reason}`"
-        end
-      end)
-
-    tracks = Map.new(valid_tracks, &{&1.id, &1})
-    state = Map.update!(state, :tracks, &Map.merge(&1, tracks))
-
-    {[], state}
+  @impl true
+  def handle_parent_notification(
+        {:subscribe, endpoints},
+        _ctx,
+        state
+      ) do
+    subscriptions_state = Subscriptions.State.add_endpoints(endpoints, state.subscriptions_state)
+    {[], %{state | subscriptions_state: subscriptions_state}}
   end
 
   def handle_parent_notification(_notification, _ctx, state) do
@@ -107,7 +126,7 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
     {offset, state} = calculate_offset(state)
     filename = generate_filename()
 
-    track = Map.get(state.tracks, track_id)
+    track = Map.get(state.subscriptions_state.tracks, track_id)
     spec = spawn_track(track, filename, state) ++ link_track(track, pad, state)
 
     Reporter.add_track(state.reporter, track, filename, offset)
@@ -128,7 +147,7 @@ defmodule Membrane.RTC.Engine.Endpoint.Recording do
       |> Enum.filter(&Map.has_key?(ctx.children, &1))
 
     track_children = track_elements ++ track_sinks
-    {_track, state} = pop_in(state, [:tracks, track_id])
+    {_track, state} = pop_in(state, [:subscriptions_state, :tracks, track_id])
 
     {[remove_children: track_children], state}
   end

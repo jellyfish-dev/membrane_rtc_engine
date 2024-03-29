@@ -19,6 +19,7 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
   alias Membrane.RTC.Engine.Endpoint.HLS.{HLSConfig, MixerConfig}
   alias Membrane.RTC.Engine.Endpoint.WebRTC.TrackReceiver
   alias Membrane.RTC.Engine.Track
+  alias Membrane.RTC.Engine.Subscriptions
   alias Membrane.Time
 
   @compositor_deps [
@@ -121,16 +122,23 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
   end
 
   @impl true
-  def handle_init(_context, options) do
+  def handle_init(ctx, options) do
+    {:endpoint, endpoint_id} = ctx.name
+
+    subscriptions_state = %Subscriptions.State{
+      subscribe_mode: options.subscribe_mode,
+      endpoint_id: endpoint_id,
+      rtc_engine: options.rtc_engine
+    }
+
     state =
       options
       |> Map.from_struct()
       |> Map.merge(%{
-        tracks: %{},
         stream_beginning: nil,
         terminating?: false,
         start_mixing_sent?: false,
-        subscribed_endpoints: MapSet.new()
+        subscriptions_state: subscriptions_state
       })
 
     {[notify_parent: :ready], state}
@@ -156,11 +164,13 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
       |> Enum.map(&{&1, track_id})
       |> Enum.filter(&Map.has_key?(ctx.children, &1))
 
-    {removed_track, tracks} = Map.pop!(state.tracks, track_id)
-    state = %{state | tracks: tracks}
+    {removed_track, subscriptions_state} =
+      Subscriptions.State.pop_track!(state.subscriptions_state, track_id)
+
+    state = %{state | subscriptions_state: subscriptions_state}
 
     sink_bin_used? =
-      Enum.any?(tracks, fn {_id, track} ->
+      Enum.any?(state.subscriptions_state.tracks, fn {_id, track} ->
         track.stream_id == removed_track.stream_id
       end)
 
@@ -189,7 +199,7 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
       ) do
     {offset, state} = get_track_offset(state)
 
-    track = Map.get(state.tracks, track_id)
+    track = Map.get(state.subscriptions_state.tracks, track_id)
     track_spec = get_track_spec(offset, bin_input(pad), track, state)
 
     {spec, state} =
@@ -260,86 +270,20 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
   end
 
   @impl true
-  def handle_parent_notification({:new_tracks, tracks}, ctx, %{subscribe_mode: :auto} = state) do
-    subscribed_tracks =
-      tracks
-      |> Enum.map(fn track -> track.id end)
-      |> subscribe_for_tracks(ctx, state)
+  def handle_parent_notification({:new_tracks, tracks}, _ctx, state) do
+    subscriptions_state = Subscriptions.State.handle_new_tracks(tracks, state.subscriptions_state)
 
-    {[], add_tracks(tracks, subscribed_tracks, state)}
-  end
-
-  @impl true
-  def handle_parent_notification({:new_tracks, tracks}, ctx, %{subscribe_mode: :manual} = state) do
-    subscribed_tracks = Map.keys(state.tracks)
-
-    subscribed_tracks =
-      tracks
-      |> Enum.filter(fn track ->
-        MapSet.member?(state.subscribed_endpoints, track.origin) and
-          track.id not in subscribed_tracks
-      end)
-      |> Enum.map(fn track -> track.id end)
-      |> subscribe_for_tracks(ctx, state)
-
-    {[], add_tracks(tracks, subscribed_tracks, state)}
+    {[], %{state | subscriptions_state: subscriptions_state}}
   end
 
   @impl true
   def handle_parent_notification(
         {:subscribe, endpoints},
-        ctx,
-        %{subscribe_mode: :manual} = state
-      ) do
-    subscribed_tracks = Map.keys(state.tracks)
-
-    tracks =
-      state.rtc_engine
-      |> Engine.get_tracks()
-      |> Enum.filter(fn track ->
-        track.origin in endpoints and track.id not in subscribed_tracks
-      end)
-
-    origins = MapSet.new(tracks, fn track -> track.origin end)
-
-    not_found_endpoints =
-      Enum.filter(endpoints, fn endpoint ->
-        MapSet.member?(origins, endpoint)
-      end)
-
-    if not_found_endpoints != [] do
-      Membrane.Logger.info(
-        "Couldn't subscribe on any track from endpoints: #{not_found_endpoints}"
-      )
-    end
-
-    new_subscribed_tracks =
-      tracks
-      |> Enum.map(fn track -> track.id end)
-      |> subscribe_for_tracks(ctx, state)
-
-    new_state =
-      tracks
-      |> add_tracks(new_subscribed_tracks, state)
-      |> Map.update!(:subscribed_endpoints, fn subscribed ->
-        endpoints |> MapSet.new() |> MapSet.union(subscribed)
-      end)
-
-    {[], new_state}
-  end
-
-  @impl true
-  def handle_parent_notification(
-        {:subscribe, _endpoints} = msg,
         _ctx,
-        %{subscribe_mode: :auto} = state
+        state
       ) do
-    Membrane.Logger.warning("""
-    Unexpected message: #{inspect(msg)}.
-    If you want to add tracks manually set `:subscribe_mode` option to `:manual`.
-    """)
-
-    {[], state}
+    subscriptions_state = Subscriptions.State.add_endpoints(endpoints, state.subscriptions_state)
+    {[], %{state | subscriptions_state: subscriptions_state}}
   end
 
   @impl true
@@ -367,7 +311,7 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
       end
 
     children_to_remove =
-      state.tracks
+      state.subscriptions_state.tracks
       |> Enum.flat_map(fn {id, _track} -> Enum.map(@track_children, &{&1, id}) end)
       |> Enum.filter(&Map.has_key?(ctx.children, &1))
 
@@ -381,33 +325,6 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
 
   @impl true
   def handle_info(_msg, _ctx, state), do: {[], state}
-
-  defp subscribe_for_tracks(track_ids, ctx, state) do
-    {:endpoint, endpoint_id} = ctx.name
-
-    Enum.filter(track_ids, fn track_id ->
-      case Engine.subscribe(state.rtc_engine, endpoint_id, track_id) do
-        :ok ->
-          true
-
-        {:error, :invalid_track_id} ->
-          Membrane.Logger.debug(
-            "Couldn't subscribe to the track: #{inspect(track_id)}. No such track."
-          )
-
-          false
-
-        {:error, reason} ->
-          raise "Couldn't subscribe to the track: #{inspect(track_id)}. Reason: #{inspect(reason)}"
-      end
-    end)
-  end
-
-  defp add_tracks(tracks, subscribed_tracks, state) do
-    tracks
-    |> Enum.filter(fn track -> track.id in subscribed_tracks end)
-    |> Enum.reduce(state, fn track, state -> put_in(state, [:tracks, track.id], track) end)
-  end
 
   defp get_hls_sink_spec(state, stream_id \\ nil) do
     directory = get_hls_stream_directory(state, stream_id)

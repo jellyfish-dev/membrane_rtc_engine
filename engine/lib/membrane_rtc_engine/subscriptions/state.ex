@@ -87,6 +87,13 @@ defmodule Membrane.RTC.Engine.Subscriptions.State do
     Map.update!(state, :endpoints, &MapSet.union(&1, endpoints))
   end
 
+  @spec pop_track!(t(), Track.id()) :: {Track.id(), t()}
+  def pop_track!(state, track_id) do
+    {removed_track, tracks} = Map.pop!(state.tracks, track_id)
+
+    {removed_track, %{state | tracks: tracks}}
+  end
+
   @impl true
   def handle_new_tracks(tracks, %{subscribe_mode: :auto} = subscriptions_state) do
     Automatic.handle_new_tracks(tracks, subscriptions_state)
