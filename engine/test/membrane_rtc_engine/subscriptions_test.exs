@@ -1,4 +1,4 @@
-defmodule Membrane.RTC.EngineTest do
+defmodule Membrane.RTC.SubscriptionsTest do
   use ExUnit.Case
 
   alias Membrane.RTC.Engine.Track

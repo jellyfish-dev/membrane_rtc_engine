@@ -42,6 +42,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   alias Membrane.RTC.Engine.Endpoint.WebRTC.{TrackReceiver, TrackSender}
   alias Membrane.RTC.Engine.Notifications.TrackNotification
+  alias Membrane.RTC.Engine.Subscriptions
   alias Membrane.RTC.Engine.Track
   alias Membrane.RTP.SessionBin
 
@@ -127,7 +128,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
             rtp_port: 1..65_535,
             sip_port: 1..65_535,
             outgoing_track: Track.t(),
-            incoming_tracks: %{Track.id() => Track.t()},
+            subscriptions_state: Subscriptions.State.t(),
             outgoing_ssrc: Membrane.RTP.ssrc_t(),
             first_ssrc: Membrane.RTP.ssrc_t() | nil,
             register_call_id: Call.id(),
@@ -146,7 +147,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
       :rtp_port,
       :sip_port,
       :outgoing_track,
-      :incoming_tracks,
+      :subscriptions_state,
       :outgoing_ssrc,
       :first_ssrc,
       :register_call_id,
@@ -163,6 +164,12 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
     Logger.debug("SIP Endpoint: Init")
 
     {:endpoint, endpoint_id} = ctx.name
+
+    subscriptions_state = %Subscriptions.State{
+      subscribe_mode: :auto,
+      endpoint_id: endpoint_id,
+      rtc_engine: opts.rtc_engine
+    }
 
     track =
       Track.new(
@@ -192,7 +199,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
           rtp_port: rtp_port,
           sip_port: Application.get_env(:membrane_rtc_engine_sip, :sip_port, @default_sip_port),
           outgoing_track: track,
-          incoming_tracks: %{},
+          subscriptions_state: subscriptions_state,
           outgoing_ssrc: SessionBin.generate_receiver_ssrc([], []),
           first_ssrc: nil,
           register_call_id: register_call_id,
@@ -227,7 +234,7 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   @impl true
   def handle_pad_added(Pad.ref(:input, track_id) = pad, _ctx, state) do
-    track = Map.get(state.incoming_tracks, track_id)
+    track = get_in(state, [:subscriptions_state, :tracks, track_id])
 
     spec = [
       bin_input(pad)
@@ -275,14 +282,14 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
 
   @impl true
   def handle_pad_removed(Pad.ref(:input, track_id), _ctx, state) do
-    state = %{state | incoming_tracks: Map.delete(state.incoming_tracks, track_id)}
+    {_track, state} = pop_in(state, [:subscriptions_state, :tracks, track_id])
 
     children_to_remove =
       [:track_receiver, :depayloader, :opus_decoder] |> Enum.map(&{&1, track_id})
 
     actions = [remove_children: children_to_remove]
 
-    if state.disconnect_if_alone and map_size(state.incoming_tracks) == 0 do
+    if state.disconnect_if_alone and map_size(state.subscriptions_state.tracks) == 0 do
       {actions ++ [notify_parent: :finished], state}
     else
       {actions, state}
@@ -339,31 +346,11 @@ defmodule Membrane.RTC.Engine.Endpoint.SIP do
   end
 
   @impl true
-  def handle_parent_notification({:new_tracks, tracks}, ctx, state) do
-    {:endpoint, endpoint_id} = ctx.name
+  def handle_parent_notification({:new_tracks, tracks}, _ctx, state) do
+    tracks = Enum.filter(tracks, fn track -> track.type == :audio end)
 
-    state =
-      tracks
-      |> Enum.filter(fn track -> track.type == :audio end)
-      |> Enum.reduce(state, fn track, state ->
-        case Engine.subscribe(state.rtc_engine, endpoint_id, track.id) do
-          :ok ->
-            put_in(state, [:incoming_tracks, track.id], track)
-
-          {:error, :invalid_track_id} ->
-            Logger.info("""
-            Couldn't subscribe to the track: #{inspect(track.id)}. No such track.
-            It had to be removed just after publishing it. Ignoring.
-            """)
-
-            state
-
-          {:error, reason} ->
-            raise "Couldn't subscribe to the track: #{inspect(track.id)}. Reason: #{inspect(reason)}"
-        end
-      end)
-
-    {[], state}
+    subscriptions_state = Subscriptions.State.handle_new_tracks(tracks, state.subscriptions_state)
+    {[], %{state | subscriptions_state: subscriptions_state}}
   end
 
   @impl true

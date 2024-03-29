@@ -18,8 +18,8 @@ defmodule Membrane.RTC.Engine.Endpoint.HLS do
   alias Membrane.RTC.Engine
   alias Membrane.RTC.Engine.Endpoint.HLS.{HLSConfig, MixerConfig}
   alias Membrane.RTC.Engine.Endpoint.WebRTC.TrackReceiver
-  alias Membrane.RTC.Engine.Track
   alias Membrane.RTC.Engine.Subscriptions
+  alias Membrane.RTC.Engine.Track
   alias Membrane.Time
 
   @compositor_deps [
