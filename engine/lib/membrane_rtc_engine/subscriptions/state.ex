@@ -1,14 +1,12 @@
 defmodule Membrane.RTC.Engine.Subscriptions.State do
   @moduledoc false
 
-  @behaviour __MODULE__
-
   use Bunch.Access
 
   require Membrane.Logger
 
   alias Membrane.RTC.Engine
-  alias Membrane.RTC.Engine.Track
+  alias Membrane.RTC.Engine.{Endpoint, Track}
   alias Membrane.RTC.Engine.Subscriptions.{Automatic, Manual}
 
   @type tracks_t :: %{Track.id() => Track.t()}
@@ -49,7 +47,7 @@ defmodule Membrane.RTC.Engine.Subscriptions.State do
   """
   @callback add_endpoints(endpoints :: [Endpoint.id()], subscriptions_state :: t()) :: t()
 
-  @spec subscribe_for_tracks([Track.t()], Endpoint.id(), pid()) :: {[Track.t()], t()}
+  @spec subscribe_for_tracks([Track.t()], Endpoint.id(), pid()) :: [Track.t()]
   def subscribe_for_tracks(tracks, endpoint_id, rtc_engine) do
     {valid_tracks, invalid_tracks} =
       Enum.split_with(tracks, fn track ->
@@ -96,22 +94,20 @@ defmodule Membrane.RTC.Engine.Subscriptions.State do
     {removed_track, %{state | tracks: tracks}}
   end
 
-  @impl true
+  @spec handle_new_tracks(tracks :: [Track.t()], subscriptions_state :: t()) :: t()
   def handle_new_tracks(tracks, %{subscribe_mode: :auto} = subscriptions_state) do
     Automatic.handle_new_tracks(tracks, subscriptions_state)
   end
 
-  @impl true
   def handle_new_tracks(tracks, %{subscribe_mode: :manual} = subscriptions_state) do
     Manual.handle_new_tracks(tracks, subscriptions_state)
   end
 
-  @impl true
+  @spec add_endpoints(endpoints :: [Endpoint.id()], subscriptions_state :: t()) :: t()
   def add_endpoints(endpoints, %{subscribe_mode: :auto} = subscriptions_state) do
     Automatic.add_endpoints(endpoints, subscriptions_state)
   end
 
-  @impl true
   def add_endpoints(endpoints, %{subscribe_mode: :manual} = subscriptions_state) do
     Manual.add_endpoints(endpoints, subscriptions_state)
   end
