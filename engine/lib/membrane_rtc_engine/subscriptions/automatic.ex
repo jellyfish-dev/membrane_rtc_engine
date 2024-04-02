@@ -2,7 +2,7 @@ defmodule Membrane.RTC.Engine.Subscriptions.Automatic do
   @moduledoc false
   # Module representing subscription for track
 
-  @behaviour State
+  @behaviour Membrane.RTC.Engine.Subscriptions.State
 
   require Membrane.Logger
 

@@ -1,7 +1,7 @@
 defmodule Membrane.RTC.Engine.Subscriptions.Manual do
   @moduledoc false
 
-  @behaviour State
+  @behaviour Membrane.RTC.Engine.Subscriptions.State
 
   require Membrane.Logger
 
