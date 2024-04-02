@@ -1,6 +1,9 @@
 defmodule Membrane.RTC.Engine.Subscriptions.State do
   @moduledoc false
 
+  # TODO: Use behaviour after upgrading elixir in docker_membrane
+  # @behaviour __MODULE__
+
   use Bunch.Access
 
   require Membrane.Logger
