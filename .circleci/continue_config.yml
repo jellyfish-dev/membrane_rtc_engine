@@ -80,7 +80,7 @@ jobs:
 
     resource_class: large
     docker:
-      - image: membraneframeworklabs/docker_membrane:v2.3.0
+      - image: membraneframeworklabs/docker_membrane:latest
         environment:
           MIX_ENV: test
 

@@ -1,8 +1,7 @@
 defmodule Membrane.RTC.Engine.Subscriptions.State do
   @moduledoc false
 
-  # TODO: Use behaviour after upgrading elixir in docker_membrane
-  # @behaviour __MODULE__
+  @behaviour __MODULE__
 
   use Bunch.Access
 
@@ -97,7 +96,8 @@ defmodule Membrane.RTC.Engine.Subscriptions.State do
     {removed_track, %{state | tracks: tracks}}
   end
 
-  @spec handle_new_tracks(tracks :: [Track.t()], subscriptions_state :: t()) :: t()
+  # @spec handle_new_tracks(tracks :: [Track.t()], subscriptions_state :: t()) :: t()
+  @impl true
   def handle_new_tracks(tracks, %{subscribe_mode: :auto} = subscriptions_state) do
     Automatic.handle_new_tracks(tracks, subscriptions_state)
   end
@@ -106,7 +106,8 @@ defmodule Membrane.RTC.Engine.Subscriptions.State do
     Manual.handle_new_tracks(tracks, subscriptions_state)
   end
 
-  @spec add_endpoints(endpoints :: [Endpoint.id()], subscriptions_state :: t()) :: t()
+  # @spec add_endpoints(endpoints :: [Endpoint.id()], subscriptions_state :: t()) :: t()
+  @impl true
   def add_endpoints(endpoints, %{subscribe_mode: :auto} = subscriptions_state) do
     Automatic.add_endpoints(endpoints, subscriptions_state)
   end

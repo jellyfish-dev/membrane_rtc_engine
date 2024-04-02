@@ -1,3 +1,5 @@
+*/.lexical
+
 .idea/
 *.iml
 assets/dist/
