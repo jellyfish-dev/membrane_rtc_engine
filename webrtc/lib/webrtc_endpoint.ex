@@ -306,6 +306,10 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
   def handle_child_notification({:new_tracks, tracks}, :endpoint_bin, ctx, state) do
     {:endpoint, endpoint_id} = ctx.name
 
+    Enum.each(tracks, fn track ->
+      Membrane.Logger.debug("New track: #{inspect(track)}")
+    end)
+
     tracks =
       Enum.map(tracks, fn track ->
         metadata = Map.get(state.track_id_to_metadata, track.id)
@@ -741,7 +745,21 @@ defmodule Membrane.RTC.Engine.Endpoint.WebRTC do
          _ctx,
          state
        ) do
-    state = put_in(state, [:inbound_tracks, track_id, :metadata], metadata)
+    Membrane.Logger.debug(
+      "Metadata updated for track #{inspect(track_id)}, metadata #{inspect(metadata)}"
+    )
+
+    state =
+      if get_in(state, [:inbound_tracks, track_id]) != nil do
+        put_in(state, [:inbound_tracks, track_id, :metadata], metadata)
+      else
+        Membrane.Logger.error(
+          "Metadata updated for non existent track #{inspect(track_id)}, metadata #{inspect(metadata)}"
+        )
+
+        state
+      end
+
     {[notify_parent: {:update_track_metadata, track_id, metadata}], state}
   end
 
