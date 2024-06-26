@@ -475,7 +475,7 @@ defmodule Membrane.WebRTC.EndpointBin do
     new_outbound_tracks =
       state.tracks.outbound
       |> Map.values()
-      |> Enum.filter(&(&1.status === :ready))
+      |> Enum.filter(&(&1.status === :ready && &1.selected_encoding != nil))
 
     negotiations = [notify_parent: {:negotiation_done, new_outbound_tracks}]
 
